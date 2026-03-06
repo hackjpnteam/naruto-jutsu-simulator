@@ -1,0 +1,1773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Naruto - Rasengan & Chidori</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #000; overflow: hidden; width: 100vw; height: 100vh; }
+    #video { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+    #glCanvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; mix-blend-mode: screen; pointer-events: none; }
+    #ui { position: fixed; bottom: 24px; left: 0; right: 0; text-align: center; pointer-events: none; z-index: 10; }
+    #status {
+      display: inline-block; padding: 6px 20px;
+      background: rgba(0,0,0,0.55); border: 1px solid rgba(80,160,255,0.4); border-radius: 20px;
+      color: rgba(160,220,255,0.95); font: 600 14px/1.5 'Segoe UI', system-ui, sans-serif;
+      text-shadow: 0 0 12px rgba(80,160,255,0.9); letter-spacing: 0.4px;
+    }
+    #gameUI {
+      position: fixed; top: 16px; left: 0; right: 0;
+      text-align: center; pointer-events: none; z-index: 10;
+    }
+    #scoreDisplay {
+      display: inline-block; padding: 4px 18px;
+      background: rgba(0,0,0,0.5); border: 1px solid rgba(255,100,50,0.4); border-radius: 14px;
+      color: rgba(255,200,150,0.95); font: 700 18px/1.4 'Segoe UI', system-ui, sans-serif;
+      text-shadow: 0 0 10px rgba(255,100,50,0.8); letter-spacing: 1px;
+    }
+    #waveDisplay {
+      display: inline-block; margin-left: 12px; padding: 4px 14px;
+      background: rgba(0,0,0,0.5); border: 1px solid rgba(255,60,30,0.4); border-radius: 14px;
+      color: rgba(255,160,120,0.9); font: 600 14px/1.4 'Segoe UI', system-ui, sans-serif;
+      text-shadow: 0 0 8px rgba(255,60,30,0.7);
+    }
+    #overlay {
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none; z-index: 50;
+      opacity: 0; background-color: #000;
+    }
+    #startScreen {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 100; background: rgba(0,0,0,0.75);
+      cursor: pointer;
+    }
+    #startScreen .title {
+      font: 900 64px/1 'Segoe UI', system-ui, sans-serif;
+      color: #ff6633; text-shadow: 0 0 30px rgba(255,80,20,0.8), 0 0 60px rgba(255,40,0,0.4);
+      letter-spacing: 6px; margin-bottom: 16px;
+    }
+    #startScreen .subtitle {
+      font: 600 22px/1.4 'Segoe UI', system-ui, sans-serif;
+      color: rgba(255,200,150,0.9); text-shadow: 0 0 12px rgba(255,100,50,0.6);
+      margin-bottom: 40px;
+    }
+    #startScreen .start-btn {
+      font: 700 32px/1 'Segoe UI', system-ui, sans-serif;
+      color: #fff; background: rgba(255,60,20,0.7); border: 2px solid rgba(255,120,60,0.8);
+      border-radius: 16px; padding: 16px 48px; cursor: pointer;
+      text-shadow: 0 0 10px rgba(255,80,30,0.9);
+      animation: btnPulse 1.8s ease-in-out infinite;
+    }
+    #startScreen .start-btn:hover { background: rgba(255,80,30,0.9); }
+    @keyframes btnPulse {
+      0%,100% { box-shadow: 0 0 15px rgba(255,60,20,0.4); }
+      50% { box-shadow: 0 0 35px rgba(255,80,30,0.8); }
+    }
+    #startScreen .instructions {
+      margin-top: 30px; font: 400 14px/1.8 'Segoe UI', system-ui, sans-serif;
+      color: rgba(200,200,220,0.7); text-align: center;
+    }
+    #missionFail {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 200; background: rgba(0,0,0,0);
+      transition: background 1s ease; pointer-events: none;
+    }
+    #missionFail.show { display: flex; }
+    #missionFail .fail-text {
+      font: 900 72px/1 'Segoe UI', system-ui, sans-serif;
+      color: #ff2222; text-shadow: 0 0 40px rgba(255,0,0,0.8), 0 0 80px rgba(200,0,0,0.4);
+      opacity: 0; transform: scale(2);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    #missionFail.visible .fail-text { opacity: 1; transform: scale(1); }
+    #missionFail .fail-score {
+      font: 600 24px/1.4 'Segoe UI', system-ui, sans-serif;
+      color: rgba(255,180,150,0.9); margin-top: 20px;
+      opacity: 0; transition: opacity 0.8s ease 0.5s;
+    }
+    #missionFail.visible .fail-score { opacity: 1; }
+    #missionFail .retry-btn {
+      font: 700 28px/1 'Segoe UI', system-ui, sans-serif;
+      color: #fff; background: rgba(255,40,20,0.6); border: 2px solid rgba(255,80,60,0.7);
+      border-radius: 14px; padding: 14px 40px; cursor: pointer; margin-top: 36px;
+      opacity: 0; transition: opacity 0.8s ease 1s;
+    }
+    #missionFail.show { pointer-events: auto; }
+    #missionFail.visible .retry-btn { opacity: 1; pointer-events: auto; }
+    #missionFail .retry-btn:hover { background: rgba(255,60,30,0.9); }
+    #missionFail .fail-reason {
+      font: 500 18px/1.4 'Segoe UI', system-ui, sans-serif;
+      color: rgba(255,100,80,0.8); margin-top: 12px;
+      opacity: 0; transition: opacity 0.8s ease 0.3s;
+    }
+    #missionFail.visible .fail-reason { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<video id="video" autoplay playsinline muted></video>
+<canvas id="glCanvas"></canvas>
+<div id="overlay"></div>
+<div id="startScreen">
+  <div class="title">忍術バトル</div>
+  <div class="subtitle">Naruto Jutsu Simulator</div>
+  <div class="start-btn" id="startBtn">ゲームスタート</div>
+  <div class="instructions">
+    右手 → 螺旋丸 / 風遁・螺旋手裏剣<br>
+    左手 → 千鳥 / 千鳥鋭槍<br>
+    ⚠ 味方（緑）を攻撃すると任務失敗！
+  </div>
+</div>
+<div id="missionFail">
+  <div class="fail-text">任務失敗</div>
+  <div class="fail-reason">味方忍者を攻撃した！</div>
+  <div class="fail-score"></div>
+  <div class="retry-btn" id="retryBtn">もう一度</div>
+</div>
+<div id="gameUI" style="display:none;"><span id="scoreDisplay">SCORE: 0</span><span id="waveDisplay">WAVE 1</span></div>
+<div id="ui"><div id="status">Initializing...</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js" crossorigin="anonymous"></script>
+
+<script>
+'use strict';
+
+var videoEl = document.getElementById('video');
+var canvasEl = document.getElementById('glCanvas');
+var statusEl = document.getElementById('status');
+var W = window.innerWidth, H = window.innerHeight;
+
+// ── THREE.JS SETUP ──────────────────────────────────────────────────
+
+var renderer = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(W, H);
+renderer.setClearColor(0x000000, 1);
+
+var scene = new THREE.Scene();
+var FOV = 60;
+var camera = new THREE.PerspectiveCamera(FOV, W / H, 1, 20000);
+
+function setCamZ() {
+  camera.position.z = H / (2 * Math.tan((FOV * Math.PI / 180) / 2));
+  camera.updateProjectionMatrix();
+}
+setCamZ();
+
+function screenToWorld(sx, sy) {
+  var v = new THREE.Vector3((sx / W) * 2 - 1, 1 - (sy / H) * 2, 0.5).unproject(camera);
+  var d = v.sub(camera.position).normalize();
+  var t = -camera.position.z / d.z;
+  return new THREE.Vector3(camera.position.x + d.x * t, camera.position.y + d.y * t, 0);
+}
+
+window.addEventListener('resize', function() {
+  W = window.innerWidth; H = window.innerHeight;
+  renderer.setSize(W, H);
+  camera.aspect = W / H;
+  setCamZ();
+});
+
+// ── TEXTURES ────────────────────────────────────────────────────────
+
+function makeRadialTex(stops, size) {
+  size = size || 128;
+  var c = document.createElement('canvas'); c.width = c.height = size;
+  var ctx = c.getContext('2d');
+  var g = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+  stops.forEach(function(s) { g.addColorStop(s[0], s[1]); });
+  ctx.fillStyle = g; ctx.fillRect(0, 0, size, size);
+  return new THREE.CanvasTexture(c);
+}
+
+var texGlow = makeRadialTex([
+  [0.00, 'rgba(255,255,255,1.0)'], [0.10, 'rgba(210,235,255,0.95)'],
+  [0.30, 'rgba(100,175,255,0.7)'], [0.55, 'rgba(30,80,230,0.3)'],
+  [0.80, 'rgba(5,20,150,0.08)'],   [1.00, 'rgba(0,5,80,0.0)'],
+], 256);
+
+var texSpark = makeRadialTex([
+  [0.00, 'rgba(255,255,255,1.0)'], [0.25, 'rgba(200,230,255,0.8)'],
+  [0.60, 'rgba(80,150,255,0.4)'],  [1.00, 'rgba(20,80,255,0.0)'],
+], 64);
+
+var texWindStreak = makeRadialTex([
+  [0.00, 'rgba(255,255,255,1.0)'], [0.12, 'rgba(210,240,255,0.9)'],
+  [0.35, 'rgba(120,200,255,0.5)'], [0.65, 'rgba(50,120,255,0.15)'],
+  [1.00, 'rgba(10,40,180,0.0)'],
+], 64);
+
+// Chidori electric glow - sharper falloff
+var texElecGlow = makeRadialTex([
+  [0.00, 'rgba(255,255,255,1.0)'], [0.08, 'rgba(230,240,255,0.95)'],
+  [0.20, 'rgba(150,190,255,0.7)'], [0.40, 'rgba(60,100,220,0.3)'],
+  [0.65, 'rgba(20,40,180,0.08)'],  [1.00, 'rgba(5,10,100,0.0)'],
+], 256);
+
+var texElecSpark = makeRadialTex([
+  [0.00, 'rgba(255,255,255,1.0)'], [0.15, 'rgba(220,230,255,0.9)'],
+  [0.40, 'rgba(100,160,255,0.5)'], [1.00, 'rgba(30,60,200,0.0)'],
+], 32);
+
+// ── SHURIKEN BLADE GEOMETRY ─────────────────────────────────────────
+
+function makeBladeGeo() {
+  var shape = new THREE.Shape();
+  shape.moveTo(25, 0);
+  shape.quadraticCurveTo(60, 26, 120, 14);
+  shape.quadraticCurveTo(160, 5, 185, 0);
+  shape.quadraticCurveTo(160, -5, 120, -14);
+  shape.quadraticCurveTo(60, -26, 25, 0);
+  return new THREE.ShapeGeometry(shape);
+}
+var bladeGeo = makeBladeGeo();
+
+// =====================================================================
+// RASENGAN FACTORY (right hand — Naruto)
+// =====================================================================
+
+function makeRasengan() {
+  var group = new THREE.Group();
+  group.visible = false;
+  var allMats = [];
+  var state = {
+    mode: 'hand', fade: 0,
+    smoothX: W * 0.5, smoothY: H * 0.5,
+    throwVX: 0, throwVY: 0, throwWorldX: 0, throwWorldY: 0,
+    explodeTimer: 0, throwTimer: 0,
+  };
+
+  function track(mat, base) {
+    mat.userData.base = (base !== undefined) ? base : mat.opacity;
+    allMats.push(mat);
+    return mat;
+  }
+
+  // Core glow orbs
+  [
+    { size: 500, opacity: 0.03, hex: 0x000840 },
+    { size: 320, opacity: 0.07, hex: 0x001880 },
+    { size: 200, opacity: 0.13, hex: 0x0040cc },
+    { size: 125, opacity: 0.22, hex: 0x1177ff },
+    { size: 78,  opacity: 0.38, hex: 0x55aaff },
+    { size: 44,  opacity: 0.62, hex: 0xaaddff },
+    { size: 20,  opacity: 0.90, hex: 0xeef8ff },
+    { size: 8,   opacity: 1.00, hex: 0xffffff },
+  ].forEach(function(cfg) {
+    var mat = track(new THREE.SpriteMaterial({
+      map: texGlow, color: new THREE.Color(cfg.hex), opacity: cfg.opacity,
+      transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+    }), cfg.opacity);
+    var spr = new THREE.Sprite(mat);
+    spr.scale.set(cfg.size, cfg.size, 1);
+    group.add(spr);
+  });
+
+  // Energy rings
+  var ringDefs = [
+    { r: 62, tube: 4.2, col: 0x1188ff, ax: [1,0.15,0], spd: 9.5 },
+    { r: 62, tube: 3.5, col: 0x55bbff, ax: [0.1,1,0.1], spd: -6.5 },
+    { r: 62, tube: 2.8, col: 0xffffff, ax: [0.7,0.5,0.5], spd: 11.5 },
+    { r: 50, tube: 2.2, col: 0x0055dd, ax: [0.3,0.2,0.93], spd: -8.5 },
+    { r: 76, tube: 2.0, col: 0x66ccff, ax: [0.15,0.95,0.28], spd: 5.5 },
+    { r: 54, tube: 1.6, col: 0xbbddff, ax: [0.9,0.1,0.43], spd: -12.5 },
+    { r: 68, tube: 1.2, col: 0x0033aa, ax: [0.5,0.7,0.5], spd: 7.5 },
+  ];
+  var rings = ringDefs.map(function(cfg) {
+    var axis = new THREE.Vector3(cfg.ax[0], cfg.ax[1], cfg.ax[2]).normalize();
+    var mat = track(new THREE.MeshBasicMaterial({
+      color: cfg.col, transparent: true, opacity: 0.80,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    }), 0.80);
+    var mesh = new THREE.Mesh(new THREE.TorusGeometry(cfg.r, cfg.tube, 7, 96), mat);
+    mesh.userData = { axis: axis, spd: cfg.spd };
+    group.add(mesh);
+    return mesh;
+  });
+
+  // Core particles
+  function buildLayer(count, rMin, rMax, ptSize, colHex, spdScale) {
+    var positions = new Float32Array(count * 3), pdata = [];
+    for (var i = 0; i < count; i++) {
+      var r = rMin + Math.random() * (rMax - rMin);
+      var angle = Math.random() * Math.PI * 2;
+      var spd = spdScale * (1.8 + Math.random() * 2.5) * (Math.random() < 0.3 ? -1 : 1);
+      var normal = new THREE.Vector3(Math.random()*2-1, Math.random()*2-1, Math.random()*2-1).normalize();
+      var ux = new THREE.Vector3(1, 0, 0);
+      if (Math.abs(normal.dot(ux)) > 0.85) ux.set(0, 1, 0);
+      var uv = new THREE.Vector3().crossVectors(normal, ux).normalize();
+      ux.crossVectors(uv, normal).normalize();
+      pdata.push({ r: r, angle: angle, spd: spd, ux: ux.clone(), uv: uv.clone() });
+      var ca = Math.cos(angle), sa = Math.sin(angle);
+      positions[i*3]=(ca*ux.x+sa*uv.x)*r; positions[i*3+1]=(ca*ux.y+sa*uv.y)*r; positions[i*3+2]=(ca*ux.z+sa*uv.z)*r;
+    }
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    var mat = track(new THREE.PointsMaterial({
+      map: texSpark, color: new THREE.Color(colHex), size: ptSize,
+      transparent: true, opacity: 0.90, blending: THREE.AdditiveBlending,
+      depthWrite: false, sizeAttenuation: false,
+    }), 0.90);
+    var pts = new THREE.Points(geo, mat);
+    group.add(pts);
+    return { pts: pts, pdata: pdata, positions: positions };
+  }
+  var layers = [
+    buildLayer(130, 6, 44, 12, 0xffffff, 4.5),
+    buildLayer(170, 38, 74, 8, 0x88ccff, 3.0),
+    buildLayer(110, 67, 100, 5, 0x3377ff, 1.8),
+  ];
+
+  // Rasenshuriken blades
+  var shurikenGroup = new THREE.Group();
+  shurikenGroup.visible = false;
+  group.add(shurikenGroup);
+
+  var bladeMeshes = [];
+  for (var bi = 0; bi < 4; bi++) {
+    var bMatO = track(new THREE.MeshBasicMaterial({ color: 0x88ccff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }), 0.70);
+    var bO = new THREE.Mesh(bladeGeo, bMatO); bO.rotation.z = (bi/4)*Math.PI*2; bO.scale.set(1.4,1.7,1); shurikenGroup.add(bO);
+    var bMatI = track(new THREE.MeshBasicMaterial({ color: 0xeeffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }), 0.85);
+    var bI = new THREE.Mesh(bladeGeo, bMatI); bI.rotation.z = (bi/4)*Math.PI*2; bI.scale.set(0.9,0.65,1); shurikenGroup.add(bI);
+    bladeMeshes.push({ outer: bO, inner: bI });
+  }
+  var discMat = track(new THREE.MeshBasicMaterial({ color: 0x4499ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }), 0.35);
+  shurikenGroup.add(new THREE.Mesh(new THREE.RingGeometry(45, 80, 64), discMat));
+  var innerRingMat = track(new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }), 0.5);
+  shurikenGroup.add(new THREE.Mesh(new THREE.RingGeometry(22, 50, 64), innerRingMat));
+  var rsGlowMat = track(new THREE.SpriteMaterial({ map: texGlow, color: new THREE.Color(0x3377ff), opacity: 0, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }), 0.20);
+  var rsGlow = new THREE.Sprite(rsGlowMat); rsGlow.scale.set(700,700,1); shurikenGroup.add(rsGlow);
+
+  // Wind particles
+  var windCount = 280, windPositions = new Float32Array(windCount*3), windData = [];
+  for (var wi = 0; wi < windCount; wi++) {
+    var wr = 35+Math.random()*180, wa = Math.random()*Math.PI*2;
+    windData.push({ r: wr, baseR: wr, angle: wa, spd: (4.5+Math.random()*5.5)*(Math.random()<0.4?-1:1), drift: 0.15+Math.random()*0.85 });
+    windPositions[wi*3]=Math.cos(wa)*wr; windPositions[wi*3+1]=Math.sin(wa)*wr; windPositions[wi*3+2]=(Math.random()-0.5)*16;
+  }
+  var windGeo = new THREE.BufferGeometry();
+  windGeo.setAttribute('position', new THREE.BufferAttribute(windPositions, 3));
+  var windMat = track(new THREE.PointsMaterial({ map: texWindStreak, color: new THREE.Color(0xcceeFF), size: 7, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: false }), 0.85);
+  shurikenGroup.add(new THREE.Points(windGeo, windMat));
+
+  // Explosion
+  var explCount = 350, explPos = new Float32Array(explCount*3), explVel = [];
+  for (var ei = 0; ei < explCount; ei++) {
+    var th = Math.random()*Math.PI*2, ph = Math.acos(2*Math.random()-1), es = 250+Math.random()*700;
+    explVel.push({ vx: Math.sin(ph)*Math.cos(th)*es, vy: Math.sin(ph)*Math.sin(th)*es, vz: Math.cos(ph)*es*0.25 });
+    explPos[ei*3]=explPos[ei*3+1]=explPos[ei*3+2]=0;
+  }
+  var explGeo = new THREE.BufferGeometry();
+  explGeo.setAttribute('position', new THREE.BufferAttribute(explPos, 3));
+  var explMat = new THREE.PointsMaterial({ map: texSpark, color: new THREE.Color(0xaaddff), size: 11, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: false });
+  var explPts = new THREE.Points(explGeo, explMat); explPts.visible = false; group.add(explPts);
+  var explSphereMat = new THREE.MeshBasicMaterial({ color: 0x88ccff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, wireframe: true });
+  var explSphere = new THREE.Mesh(new THREE.SphereGeometry(1,32,24), explSphereMat); explSphere.visible = false; group.add(explSphere);
+  var shockMat = new THREE.MeshBasicMaterial({ color: 0xeeffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  var shockRing = new THREE.Mesh(new THREE.RingGeometry(0.85,1,64), shockMat); shockRing.visible = false; group.add(shockRing);
+  var flashMat = new THREE.SpriteMaterial({ map: texGlow, color: new THREE.Color(0xffffff), opacity: 0, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+  var flashSprite = new THREE.Sprite(flashMat); flashSprite.visible = false; group.add(flashSprite);
+
+  function animateCore(dt, spdMult) {
+    rings.forEach(function(ring) { ring.rotateOnAxis(ring.userData.axis, ring.userData.spd * dt * spdMult); });
+    layers.forEach(function(layer) {
+      var pd = layer.pdata, pos = layer.positions;
+      for (var i = 0; i < pd.length; i++) {
+        var d = pd[i]; d.angle += d.spd * dt * spdMult;
+        var ca = Math.cos(d.angle), sa = Math.sin(d.angle), r = d.r;
+        pos[i*3]=(ca*d.ux.x+sa*d.uv.x)*r; pos[i*3+1]=(ca*d.ux.y+sa*d.uv.y)*r; pos[i*3+2]=(ca*d.ux.z+sa*d.uv.z)*r;
+      }
+      layer.pts.geometry.attributes.position.needsUpdate = true;
+    });
+  }
+  function animateWind(dt, intensity) {
+    for (var i = 0; i < windCount; i++) {
+      var wd = windData[i]; wd.angle += wd.spd*dt*(2+intensity*5); wd.r += wd.drift*dt*110*intensity;
+      if (wd.r > 240) { wd.r = wd.baseR*(0.3+Math.random()*0.7); wd.angle = Math.random()*Math.PI*2; }
+      windPositions[i*3]=Math.cos(wd.angle)*wd.r; windPositions[i*3+1]=Math.sin(wd.angle)*wd.r; windPositions[i*3+2]=(Math.random()-0.5)*12;
+    }
+    windGeo.attributes.position.needsUpdate = true;
+  }
+
+  function update(dt, handOpen, targetX, targetY, holdTime, doThrow, throwVelX, throwVelY) {
+    var t = performance.now() / 1000;
+
+    if (state.mode === 'thrown') {
+      state.throwTimer += dt; group.visible = true;
+      state.throwWorldX += state.throwVX * dt; state.throwWorldY += state.throwVY * dt;
+      group.position.set(state.throwWorldX, state.throwWorldY, 0);
+      allMats.forEach(function(m) { m.opacity = m.userData.base; });
+      animateCore(dt, 8); shurikenGroup.visible = true; shurikenGroup.rotation.z += dt * 30;
+      bladeMeshes.forEach(function(bm) { bm.outer.material.opacity = 0.55; bm.inner.material.opacity = 0.7; });
+      discMat.opacity = 0.35; innerRingMat.opacity = 0.5; rsGlowMat.opacity = 0.20; windMat.opacity = 0.85;
+      animateWind(dt, 1.0);
+      group.scale.setScalar((1 + 0.04 * Math.sin(t * 8)) * 2.2);
+      if (state.throwTimer > 1.0) { state.mode = 'exploding'; state.explodeTimer = 0; for (var ei = 0; ei < explCount; ei++) explPos[ei*3]=explPos[ei*3+1]=explPos[ei*3+2]=0; }
+      return;
+    }
+    if (state.mode === 'exploding') {
+      state.explodeTimer += dt; var et = state.explodeTimer, p = Math.min(1, et / 2.0); group.visible = true;
+      allMats.forEach(function(m) { m.opacity = m.userData.base * Math.max(0, 1 - et * 4); });
+      if (et > 0.25) shurikenGroup.visible = false;
+      explSphere.visible = true; explSphere.scale.setScalar(30 + p * 550); explSphereMat.opacity = 0.45 * (1-p)*(1-p);
+      shockRing.visible = true; shockRing.scale.setScalar(p * 900); shockMat.opacity = 0.7 * Math.max(0, 1 - p*2.5);
+      flashSprite.visible = et < 0.5; if (et < 0.5) { flashSprite.scale.setScalar(300 + et*4000); flashMat.opacity = Math.max(0, 1 - et*2); }
+      explPts.visible = true;
+      for (var ei2 = 0; ei2 < explCount; ei2++) { explPos[ei2*3]+=explVel[ei2].vx*dt; explPos[ei2*3+1]+=explVel[ei2].vy*dt; explPos[ei2*3+2]+=explVel[ei2].vz*dt; }
+      explGeo.attributes.position.needsUpdate = true; explMat.opacity = 0.9 * Math.pow(1-p, 1.5);
+      group.scale.setScalar(1);
+      if (et >= 2.0) { state.mode = 'idle'; group.visible = false; explSphere.visible = shockRing.visible = flashSprite.visible = explPts.visible = false; }
+      return;
+    }
+    if (state.mode === 'idle') { if (handOpen) { state.mode = 'hand'; state.fade = 0; } else { group.visible = false; return; } }
+
+    // Hand mode
+    state.fade += (handOpen ? 1 : -1) * dt * (handOpen ? 3 : 5);
+    state.fade = Math.max(0, Math.min(1, state.fade));
+    group.visible = state.fade > 0.005;
+    if (!group.visible) return;
+    var oodama = Math.max(0, Math.min(1, (holdTime - 1) / 2));
+    var rshuriken = Math.max(0, Math.min(1, (holdTime - 3) / 3));
+    var spdMult = 1 + oodama * 2 + rshuriken * 3;
+    var sizeMult = 1 + oodama * 1.2;
+    var alpha = 1 - Math.pow(0.04, dt);
+    state.smoothX += (targetX - state.smoothX) * alpha; state.smoothY += (targetY - state.smoothY) * alpha;
+    var wp = screenToWorld(state.smoothX, state.smoothY);
+    group.position.set(wp.x, wp.y, 0);
+    var f = state.fade;
+    allMats.forEach(function(m) { m.opacity = m.userData.base * f; });
+    var pulse = 1 + 0.07 * Math.sin(t * 4.5) + 0.03 * Math.sin(t * 11.3);
+    group.scale.setScalar(pulse * sizeMult * f * f);
+    animateCore(dt, spdMult);
+
+    shurikenGroup.visible = rshuriken > 0.01;
+    if (rshuriken > 0.01) {
+      var rsF = rshuriken * f;
+      shurikenGroup.rotation.z += dt * (10 + rshuriken * 20);
+      bladeMeshes.forEach(function(bm) { bm.outer.material.opacity = 0.55*rsF; bm.inner.material.opacity = 0.7*rsF; });
+      discMat.opacity = 0.35*rsF; innerRingMat.opacity = 0.5*rsF; rsGlowMat.opacity = 0.20*rsF;
+      rsGlow.scale.setScalar(550 + rshuriken * 350); windMat.opacity = 0.85*rsF; animateWind(dt, rshuriken);
+    } else { for (var wi2 = 0; wi2 < windCount; wi2++) windData[wi2].r = windData[wi2].baseR; }
+
+    if (doThrow && rshuriken >= 1) {
+      state.mode = 'thrown'; state.throwTimer = 0;
+      state.throwWorldX = group.position.x; state.throwWorldY = group.position.y;
+      var wvx = throwVelX, wvy = -throwVelY, mag = Math.sqrt(wvx*wvx + wvy*wvy);
+      if (mag < 40) { state.throwVX = 700; state.throwVY = 400; }
+      else { var spd = Math.max(900, mag*4); state.throwVX = (wvx/mag)*spd; state.throwVY = (wvy/mag)*spd; }
+    }
+  }
+  return { group: group, update: update, getState: function() { return state; } };
+}
+
+// =====================================================================
+// CHIDORI FACTORY (left hand — Sasuke) — Anime-accurate intense version
+// =====================================================================
+
+function makeChidori() {
+  var group = new THREE.Group();
+  group.visible = false;
+  var allMats = [];
+  var state = {
+    mode: 'hand', fade: 0,
+    smoothX: W * 0.5, smoothY: H * 0.5,
+    thrustDirX: 1, thrustDirY: 0,
+    thrustTimer: 0, burstTimer: 0, boltTimer: 0,
+    surgeTimer: 0, // random brightness surges
+  };
+
+  function track(mat, base) {
+    mat.userData.base = (base !== undefined) ? base : mat.opacity;
+    allMats.push(mat);
+    return mat;
+  }
+
+  // ── Core glow — 10 layers, very intense white-blue center
+  [
+    { size: 600, opacity: 0.04, hex: 0x050520 },
+    { size: 420, opacity: 0.06, hex: 0x0a0a60 },
+    { size: 280, opacity: 0.10, hex: 0x1520a0 },
+    { size: 180, opacity: 0.18, hex: 0x2840cc },
+    { size: 120, opacity: 0.30, hex: 0x4070ee },
+    { size: 75,  opacity: 0.45, hex: 0x6099ff },
+    { size: 48,  opacity: 0.65, hex: 0x90bbff },
+    { size: 28,  opacity: 0.82, hex: 0xccddff },
+    { size: 14,  opacity: 0.95, hex: 0xeef4ff },
+    { size: 6,   opacity: 1.00, hex: 0xffffff },
+  ].forEach(function(cfg) {
+    var mat = track(new THREE.SpriteMaterial({
+      map: texElecGlow, color: new THREE.Color(cfg.hex), opacity: cfg.opacity,
+      transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+    }), cfg.opacity);
+    var spr = new THREE.Sprite(mat);
+    spr.scale.set(cfg.size, cfg.size, 1);
+    group.add(spr);
+  });
+
+  // Surge flash sprite (random intense flashes)
+  var surgeMat = track(new THREE.SpriteMaterial({
+    map: texElecGlow, color: new THREE.Color(0xffffff), opacity: 0,
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+  }), 0.0);
+  var surgeSpr = new THREE.Sprite(surgeMat);
+  surgeSpr.scale.set(250, 250, 1);
+  group.add(surgeSpr);
+
+  // ── Lightning bolts — 3 layers for density
+  var BOLT_SEGS = 14;
+  var allBolts = []; // flat array of all bolt objects
+
+  function regenerateBolt(positions, segs, startR, endR, zigzag) {
+    var dx = Math.random()-0.5, dy = Math.random()-0.5, dz = (Math.random()-0.5)*0.3;
+    var len = Math.sqrt(dx*dx+dy*dy+dz*dz)||1; dx/=len; dy/=len; dz/=len;
+    var px, py, pz;
+    if (Math.abs(dx)<0.8) { px=0; py=-dz; pz=dy; } else { px=-dz; py=0; pz=dx; }
+    var plen = Math.sqrt(px*px+py*py+pz*pz)||1; px/=plen; py/=plen; pz/=plen;
+    var qx=dy*pz-dz*py, qy=dz*px-dx*pz, qz=dx*py-dy*px;
+    for (var i = 0; i <= segs; i++) {
+      var t = i / segs;
+      var r = startR + (endR - startR) * t;
+      var jit = (i>0 && i<segs) ? zigzag * (1-t*0.2) : 0;
+      var o1 = (Math.random()-0.5)*jit, o2 = (Math.random()-0.5)*jit;
+      positions[i*3]   = dx*r + px*o1 + qx*o2;
+      positions[i*3+1] = dy*r + py*o1 + qy*o2;
+      positions[i*3+2] = dz*r + pz*o1 + qz*o2;
+    }
+  }
+
+  // Layer 1: Core bolts (8, bright white, short, thick zigzag)
+  var coreBolts = [];
+  for (var cb = 0; cb < 8; cb++) {
+    var geo = new THREE.BufferGeometry();
+    var pos = new Float32Array((BOLT_SEGS+1)*3);
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    var mat = track(new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending }), 0.95);
+    var line = new THREE.Line(geo, mat);
+    group.add(line);
+    coreBolts.push({ line:line, positions:pos, geo:geo });
+    allBolts.push(coreBolts[cb]);
+  }
+
+  // Layer 2: Main bolts (12, blue-white, medium, with branches)
+  var mainBolts = [];
+  for (var mb = 0; mb < 12; mb++) {
+    var geo2 = new THREE.BufferGeometry();
+    var pos2 = new Float32Array((BOLT_SEGS+1)*3);
+    geo2.setAttribute('position', new THREE.BufferAttribute(pos2, 3));
+    var col2 = mb < 6 ? 0xaaccff : 0x77aaff;
+    var mat2 = track(new THREE.LineBasicMaterial({ color: col2, transparent: true, opacity: 0.88, blending: THREE.AdditiveBlending }), 0.88);
+    var line2 = new THREE.Line(geo2, mat2);
+    group.add(line2);
+    mainBolts.push({ line:line2, positions:pos2, geo:geo2 });
+    allBolts.push(mainBolts[mb]);
+  }
+
+  // Layer 3: Outer bolts (14, blue, long, sparser)
+  var outerBolts = [];
+  for (var ob = 0; ob < 14; ob++) {
+    var geo3 = new THREE.BufferGeometry();
+    var pos3 = new Float32Array((BOLT_SEGS+1)*3);
+    geo3.setAttribute('position', new THREE.BufferAttribute(pos3, 3));
+    var col3 = ob < 7 ? 0x5588dd : 0x3366bb;
+    var mat3 = track(new THREE.LineBasicMaterial({ color: col3, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending }), 0.75);
+    var line3 = new THREE.Line(geo3, mat3);
+    group.add(line3);
+    outerBolts.push({ line:line3, positions:pos3, geo:geo3 });
+    allBolts.push(outerBolts[ob]);
+  }
+
+  // Branch bolts (fork off main bolts — 18 branches)
+  var BRANCH_SEGS = 7;
+  var branchBolts = [];
+  for (var br = 0; br < 18; br++) {
+    var geo4 = new THREE.BufferGeometry();
+    var pos4 = new Float32Array((BRANCH_SEGS+1)*3);
+    geo4.setAttribute('position', new THREE.BufferAttribute(pos4, 3));
+    var mat4 = track(new THREE.LineBasicMaterial({ color: br<9?0x88bbff:0x5577cc, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending }), 0.7);
+    var line4 = new THREE.Line(geo4, mat4);
+    group.add(line4);
+    branchBolts.push({ line:line4, positions:pos4, geo:geo4 });
+  }
+
+  // Arc lightning (connect random surface points — 10 arcs)
+  var ARC_SEGS = 9;
+  var arcBolts = [];
+  for (var ar = 0; ar < 10; ar++) {
+    var geo5 = new THREE.BufferGeometry();
+    var pos5 = new Float32Array((ARC_SEGS+1)*3);
+    geo5.setAttribute('position', new THREE.BufferAttribute(pos5, 3));
+    var mat5 = track(new THREE.LineBasicMaterial({ color: ar<5?0x99ccff:0x6688cc, transparent: true, opacity: 0.65, blending: THREE.AdditiveBlending }), 0.65);
+    var line5 = new THREE.Line(geo5, mat5);
+    group.add(line5);
+    arcBolts.push({ line:line5, positions:pos5, geo:geo5 });
+  }
+
+  function regenerateArc(positions, radius, zigzag) {
+    var a1=Math.random()*Math.PI*2, a2=Math.random()*Math.PI*2;
+    var p1=Math.acos(2*Math.random()-1), p2=Math.acos(2*Math.random()-1);
+    var x1=Math.sin(p1)*Math.cos(a1)*radius, y1=Math.sin(p1)*Math.sin(a1)*radius, z1=Math.cos(p1)*radius*0.3;
+    var x2=Math.sin(p2)*Math.cos(a2)*radius, y2=Math.sin(p2)*Math.sin(a2)*radius, z2=Math.cos(p2)*radius*0.3;
+    for (var i=0; i<=ARC_SEGS; i++) {
+      var t=i/ARC_SEGS;
+      var jit = (i>0&&i<ARC_SEGS) ? zigzag : 0;
+      positions[i*3]   = x1+(x2-x1)*t + (Math.random()-0.5)*jit;
+      positions[i*3+1] = y1+(y2-y1)*t + (Math.random()-0.5)*jit;
+      positions[i*3+2] = z1+(z2-z1)*t + (Math.random()-0.5)*jit*0.3;
+    }
+  }
+
+  function regenerateBranch(positions, parentPos, startIdx, length, zigzag) {
+    var sx = parentPos[startIdx*3], sy = parentPos[startIdx*3+1], sz = parentPos[startIdx*3+2];
+    var dx=Math.random()-0.5, dy=Math.random()-0.5, dz=(Math.random()-0.5)*0.2;
+    var len=Math.sqrt(dx*dx+dy*dy+dz*dz)||1; dx/=len; dy/=len; dz/=len;
+    for (var i=0; i<=BRANCH_SEGS; i++) {
+      var t=i/BRANCH_SEGS;
+      var r=t*length;
+      var jit=(i>0&&i<BRANCH_SEGS)?zigzag*(1-t*0.3):0;
+      positions[i*3]   = sx + dx*r + (Math.random()-0.5)*jit;
+      positions[i*3+1] = sy + dy*r + (Math.random()-0.5)*jit;
+      positions[i*3+2] = sz + dz*r + (Math.random()-0.5)*jit*0.3;
+    }
+  }
+
+  // ── Bolt vertex glow sprites (make bolts appear thick)
+  var boltGlowCount = 90;
+  var boltGlows = [];
+  for (var vg = 0; vg < boltGlowCount; vg++) {
+    var vgMat = new THREE.SpriteMaterial({
+      map: texElecGlow, color: new THREE.Color(vg < 30 ? 0xffffff : (vg < 60 ? 0xbbddff : 0x6699ee)),
+      opacity: 0, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+    });
+    var vgSpr = new THREE.Sprite(vgMat);
+    vgSpr.scale.set(45, 45, 1);
+    vgSpr.visible = false;
+    group.add(vgSpr);
+    boltGlows.push({ sprite: vgSpr, mat: vgMat });
+  }
+
+  // ── Electric sparks — 350 particles, fast & chaotic
+  var sparkCount = 350;
+  var sparkPositions = new Float32Array(sparkCount * 3);
+  var sparkData = [];
+  for (var si = 0; si < sparkCount; si++) {
+    var sth = Math.random()*Math.PI*2, sph = Math.acos(2*Math.random()-1);
+    var sspd = 300 + Math.random() * 700;
+    var slife = 0.08 + Math.random() * 0.25;
+    sparkData.push({
+      vx: Math.sin(sph)*Math.cos(sth)*sspd, vy: Math.sin(sph)*Math.sin(sth)*sspd,
+      vz: Math.cos(sph)*sspd*0.25, maxLife: slife, age: Math.random()*slife,
+    });
+    sparkPositions[si*3]=sparkPositions[si*3+1]=sparkPositions[si*3+2]=0;
+  }
+  var sparkGeo = new THREE.BufferGeometry();
+  sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPositions, 3));
+  var sparkMat = track(new THREE.PointsMaterial({
+    map: texElecSpark, color: new THREE.Color(0xddeeff), size: 6,
+    transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending,
+    depthWrite: false, sizeAttenuation: false,
+  }), 0.95);
+  var sparkPts = new THREE.Points(sparkGeo, sparkMat);
+  group.add(sparkPts);
+
+  // ── Chidori Eisou beam lines (8 lines for thicker beam)
+  var BEAM_SEGS = 45;
+  var beamLines = [];
+  for (var bli = 0; bli < 8; bli++) {
+    var bGeo = new THREE.BufferGeometry();
+    var bPos = new Float32Array((BEAM_SEGS+1)*3);
+    bGeo.setAttribute('position', new THREE.BufferAttribute(bPos, 3));
+    bGeo.setDrawRange(0, 0);
+    var bCol = bli<2 ? 0xffffff : (bli<5 ? 0x88bbff : 0x4466cc);
+    var bMat = new THREE.LineBasicMaterial({ color: bCol, transparent: true, opacity: bli<2?1.0:0.65, blending: THREE.AdditiveBlending });
+    var bLine = new THREE.Line(bGeo, bMat);
+    bLine.visible = false;
+    group.add(bLine);
+    beamLines.push({ line:bLine, geo:bGeo, positions:bPos, mat:bMat });
+  }
+
+  // Beam glow sprites (30 along beam path)
+  var beamGlowCount = 30;
+  var beamGlows = [];
+  for (var bgi = 0; bgi < beamGlowCount; bgi++) {
+    var bgMat = new THREE.SpriteMaterial({ map: texElecGlow, color: new THREE.Color(bgi<10?0xffffff:0x4488ff), opacity: 0, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+    var bgSpr = new THREE.Sprite(bgMat);
+    bgSpr.scale.set(90, 90, 1);
+    bgSpr.visible = false;
+    group.add(bgSpr);
+    beamGlows.push({ sprite: bgSpr, mat: bgMat });
+  }
+
+  // Burst effects
+  var burstFlashMat = new THREE.SpriteMaterial({ map: texElecGlow, color: new THREE.Color(0xffffff), opacity: 0, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+  var burstFlash = new THREE.Sprite(burstFlashMat);
+  burstFlash.visible = false;
+  group.add(burstFlash);
+
+  var burstCount = 350;
+  var burstPos = new Float32Array(burstCount*3), burstVel = [];
+  for (var bui = 0; bui < burstCount; bui++) {
+    var bth=Math.random()*Math.PI*2, bph=Math.acos(2*Math.random()-1), bsp=250+Math.random()*800;
+    burstVel.push({ vx:Math.sin(bph)*Math.cos(bth)*bsp, vy:Math.sin(bph)*Math.sin(bth)*bsp, vz:Math.cos(bph)*bsp*0.2 });
+    burstPos[bui*3]=burstPos[bui*3+1]=burstPos[bui*3+2]=0;
+  }
+  var burstGeo = new THREE.BufferGeometry();
+  burstGeo.setAttribute('position', new THREE.BufferAttribute(burstPos, 3));
+  var burstMat = new THREE.PointsMaterial({ map: texElecSpark, color: new THREE.Color(0xbbddff), size: 9, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: false });
+  var burstPts = new THREE.Points(burstGeo, burstMat);
+  burstPts.visible = false;
+  group.add(burstPts);
+
+  // ── Helper: regenerate ALL bolts for hand mode
+  function regenAllBolts(coreR, mainR, outerR, zigBase, charge, eisou) {
+    // Core bolts: short, intense, wide zigzag
+    coreBolts.forEach(function(b) {
+      regenerateBolt(b.positions, BOLT_SEGS, 3, coreR*(0.6+Math.random()*0.6), zigBase*1.5);
+      b.geo.attributes.position.needsUpdate = true;
+      b.line.visible = Math.random() > 0.08;
+    });
+    // Main bolts: medium, some extend for eisou
+    mainBolts.forEach(function(b, idx) {
+      var endR = mainR * (0.5 + Math.random()*0.7);
+      if (eisou > 0.2 && idx < 5) endR = mainR * (1 + eisou * 1.0);
+      regenerateBolt(b.positions, BOLT_SEGS, 4, endR, zigBase*1.2);
+      b.geo.attributes.position.needsUpdate = true;
+      b.line.visible = Math.random() > 0.1;
+    });
+    // Outer bolts: long, thinner
+    outerBolts.forEach(function(b, idx) {
+      var endR = outerR * (0.4 + Math.random()*0.8);
+      if (eisou > 0.5 && idx < 6) endR = outerR * (1.2 + eisou * 0.6);
+      regenerateBolt(b.positions, BOLT_SEGS, 5, endR, zigBase);
+      b.geo.attributes.position.needsUpdate = true;
+      b.line.visible = Math.random() > 0.2;
+    });
+    // Branch bolts: fork from main bolt vertices
+    branchBolts.forEach(function(br, idx) {
+      var parent = mainBolts[idx % mainBolts.length];
+      var vIdx = 3 + Math.floor(Math.random() * (BOLT_SEGS - 4));
+      var brLen = 20 + Math.random() * (30 + charge * 40);
+      regenerateBranch(br.positions, parent.positions, vIdx, brLen, zigBase * 0.8);
+      br.geo.attributes.position.needsUpdate = true;
+      br.line.visible = Math.random() > 0.25;
+    });
+    // Arc lightning
+    var arcR = mainR * 0.8;
+    arcBolts.forEach(function(a) {
+      regenerateArc(a.positions, arcR, zigBase * 0.6);
+      a.geo.attributes.position.needsUpdate = true;
+      a.line.visible = Math.random() > 0.3;
+    });
+    // Place vertex glow sprites along bolt paths
+    var glowIdx = 0;
+    var allSrc = [coreBolts, mainBolts, outerBolts];
+    var glowSizes = [55, 42, 28];
+    allSrc.forEach(function(boltArr, layerIdx) {
+      boltArr.forEach(function(b) {
+        if (!b.line.visible) return;
+        // Place 1-3 glow sprites on this bolt
+        var count = 1 + Math.floor(Math.random() * 2);
+        for (var g = 0; g < count && glowIdx < boltGlowCount; g++) {
+          var vi = 2 + Math.floor(Math.random() * (BOLT_SEGS - 3));
+          var bg = boltGlows[glowIdx++];
+          bg.sprite.visible = true;
+          bg.sprite.position.set(b.positions[vi*3], b.positions[vi*3+1], b.positions[vi*3+2]);
+          var sz = glowSizes[layerIdx] * (0.7 + Math.random() * 0.6);
+          bg.sprite.scale.set(sz, sz, 1);
+          bg.mat.opacity = (0.3 + Math.random() * 0.4) * (layerIdx === 0 ? 1 : 0.7);
+        }
+      });
+    });
+    // Hide unused glow sprites
+    for (; glowIdx < boltGlowCount; glowIdx++) boltGlows[glowIdx].sprite.visible = false;
+  }
+
+  // ── UPDATE ────────────────────────────────────────────────────────
+
+  function update(dt, handOpen, targetX, targetY, holdTime, doThrust, thrustVelX, thrustVelY) {
+    var t = performance.now() / 1000;
+
+    // ═══ THRUST MODE ═══
+    if (state.mode === 'thrust') {
+      state.thrustTimer += dt;
+      group.visible = true;
+      var beamMaxLen = 900;
+      var beamLen = Math.min(beamMaxLen, state.thrustTimer * 4000);
+      var thrustDone = state.thrustTimer > 0.5;
+      var coreFade = Math.max(0, 1 - state.thrustTimer * 1.5);
+      allMats.forEach(function(m) { m.opacity = m.userData.base * coreFade; });
+      state.boltTimer += dt;
+      if (state.boltTimer > 0.025) {
+        state.boltTimer = 0;
+        allBolts.forEach(function(b) { regenerateBolt(b.positions, BOLT_SEGS, 3, 35*coreFade+8, 12); b.geo.attributes.position.needsUpdate = true; });
+        branchBolts.forEach(function(b) { b.line.visible = false; });
+        arcBolts.forEach(function(a) { a.line.visible = false; });
+        boltGlows.forEach(function(bg) { bg.sprite.visible = false; });
+      }
+      var dirX = state.thrustDirX, dirY = state.thrustDirY, perpX = -dirY, perpY = dirX;
+      var numSegs = Math.max(2, Math.min(BEAM_SEGS, Math.floor((beamLen/beamMaxLen)*BEAM_SEGS)));
+      beamLines.forEach(function(bl, idx) {
+        bl.line.visible = true;
+        var spread = idx < 2 ? 6 : (idx < 5 ? 15 : 25);
+        for (var j = 0; j <= numSegs; j++) {
+          var bt2 = j/BEAM_SEGS, dist = bt2*beamLen;
+          var jit = (j>0&&j<numSegs) ? (Math.random()-0.5)*spread : 0;
+          bl.positions[j*3]=dirX*dist+perpX*jit; bl.positions[j*3+1]=dirY*dist+perpY*jit; bl.positions[j*3+2]=(Math.random()-0.5)*spread*0.2;
+        }
+        bl.geo.setDrawRange(0, numSegs+1);
+        bl.geo.attributes.position.needsUpdate = true;
+        bl.mat.opacity = (idx<2?1.0:0.65) * Math.max(0, 1-state.thrustTimer*0.7);
+      });
+      for (var bgi2=0; bgi2<beamGlowCount; bgi2++) {
+        var bt3=(bgi2+0.5)/beamGlowCount, d3=bt3*beamLen;
+        if (d3<beamLen*0.95) {
+          beamGlows[bgi2].sprite.visible=true;
+          beamGlows[bgi2].sprite.position.set(dirX*d3, dirY*d3, 0);
+          beamGlows[bgi2].mat.opacity = (bgi2<10?0.5:0.3) * Math.max(0,1-state.thrustTimer*0.7) * (0.5+0.5*Math.random());
+          var gs2=70+Math.random()*40; beamGlows[bgi2].sprite.scale.set(gs2,gs2,1);
+        } else beamGlows[bgi2].sprite.visible=false;
+      }
+      for (var si2=0; si2<sparkCount; si2++) {
+        var sd=sparkData[si2]; sd.age+=dt;
+        if (sd.age>=sd.maxLife) {
+          sd.age=0; var spos=Math.random()*beamLen;
+          sparkPositions[si2*3]=dirX*spos; sparkPositions[si2*3+1]=dirY*spos; sparkPositions[si2*3+2]=0;
+          var sa=Math.random()*Math.PI*2, sv=120+Math.random()*250;
+          sd.vx=perpX*Math.cos(sa)*sv+dirX*50; sd.vy=perpY*Math.cos(sa)*sv+dirY*50; sd.vz=Math.sin(sa)*sv*0.5;
+        }
+        sparkPositions[si2*3]+=sd.vx*dt; sparkPositions[si2*3+1]+=sd.vy*dt; sparkPositions[si2*3+2]+=sd.vz*dt;
+      }
+      sparkGeo.attributes.position.needsUpdate=true;
+      sparkMat.opacity=0.95*Math.max(0,1-state.thrustTimer*0.6);
+      group.scale.setScalar(2.0);
+      if (thrustDone) {
+        state.mode='burst'; state.burstTimer=0;
+        var tipX=dirX*beamMaxLen, tipY=dirY*beamMaxLen;
+        burstFlash.position.set(tipX,tipY,0); burstPts.position.set(tipX,tipY,0);
+        for (var bri=0;bri<burstCount;bri++) burstPos[bri*3]=burstPos[bri*3+1]=burstPos[bri*3+2]=0;
+      }
+      return;
+    }
+
+    // ═══ BURST MODE ═══
+    if (state.mode === 'burst') {
+      state.burstTimer += dt;
+      var btm = state.burstTimer, bp = Math.min(1, btm / 1.5);
+      group.visible = true;
+      allMats.forEach(function(m) { m.opacity = 0; });
+      allBolts.forEach(function(b) { b.line.visible=false; });
+      branchBolts.forEach(function(b) { b.line.visible=false; });
+      arcBolts.forEach(function(a) { a.line.visible=false; });
+      boltGlows.forEach(function(bg) { bg.sprite.visible=false; });
+      beamLines.forEach(function(bl) { bl.line.visible=false; });
+      beamGlows.forEach(function(bg) { bg.sprite.visible=false; });
+      sparkPts.visible=false;
+      burstFlash.visible = btm < 0.5;
+      if (btm < 0.5) { burstFlash.scale.setScalar(250+btm*4000); burstFlashMat.opacity=Math.max(0,1-btm*2); }
+      burstPts.visible=true;
+      for (var bri2=0;bri2<burstCount;bri2++) { burstPos[bri2*3]+=burstVel[bri2].vx*dt; burstPos[bri2*3+1]+=burstVel[bri2].vy*dt; burstPos[bri2*3+2]+=burstVel[bri2].vz*dt; }
+      burstGeo.attributes.position.needsUpdate=true;
+      burstMat.opacity = 0.9*Math.pow(1-bp,1.5);
+      group.scale.setScalar(2.0);
+      if (btm>=1.5) { state.mode='idle'; group.visible=false; burstFlash.visible=false; burstPts.visible=false; }
+      return;
+    }
+
+    // ═══ IDLE ═══
+    if (state.mode === 'idle') {
+      if (handOpen) { state.mode='hand'; state.fade=0; } else { group.visible=false; return; }
+    }
+
+    // ═══ HAND MODE — INTENSE ANIME CHIDORI ═══
+    state.fade += (handOpen?1:-1) * dt * (handOpen?3.5:5);
+    state.fade = Math.max(0, Math.min(1, state.fade));
+    group.visible = state.fade > 0.005;
+    if (!group.visible) return;
+
+    var charge = Math.max(0, Math.min(1, (holdTime-1)/2));
+    var eisou  = Math.max(0, Math.min(1, (holdTime-3)/3));
+    var f = state.fade;
+
+    // Smooth position
+    var alpha = 1 - Math.pow(0.04, dt);
+    state.smoothX += (targetX-state.smoothX)*alpha;
+    state.smoothY += (targetY-state.smoothY)*alpha;
+    var wp = screenToWorld(state.smoothX, state.smoothY);
+    group.position.set(wp.x, wp.y, 0);
+
+    // Intense flicker + random surges
+    state.surgeTimer -= dt;
+    var isSurge = state.surgeTimer > 0;
+    if (Math.random() < 0.04 + charge * 0.06) state.surgeTimer = 0.04 + Math.random() * 0.06;
+    var flicker = isSurge ? (1.3 + Math.random() * 0.4) : (0.7 + 0.3 * Math.random());
+    allMats.forEach(function(m) { m.opacity = Math.min(1, m.userData.base * f * flicker); });
+
+    // Surge flash
+    if (isSurge) {
+      surgeMat.opacity = 0.5 + Math.random() * 0.3;
+      var surgeSize = 200 + charge * 150 + Math.random() * 80;
+      surgeSpr.scale.set(surgeSize, surgeSize, 1);
+    } else {
+      surgeMat.opacity = 0;
+    }
+
+    // Scale: grows with charge, aggressive pulsing
+    var sizeMult = 0.9 + charge * 0.8 + eisou * 0.6;
+    var pulse = 1 + 0.12*Math.sin(t*7) + 0.08*Math.sin(t*17) + 0.05*Math.sin(t*31);
+    group.scale.setScalar(pulse * sizeMult * f * f);
+
+    // Regenerate ALL bolts — very fast for intense flicker
+    state.boltTimer += dt;
+    var boltInterval = 0.022 - charge * 0.008;
+    if (state.boltTimer > boltInterval) {
+      state.boltTimer = 0;
+      var coreR = 55 + charge * 30;
+      var mainR = 80 + charge * 50 + eisou * 40;
+      var outerR = 110 + charge * 60 + eisou * 50;
+      var zigBase = 25 + charge * 15 + eisou * 10;
+      regenAllBolts(coreR, mainR, outerR, zigBase, charge, eisou);
+    }
+
+    // Sparks — fast, chaotic, dense
+    var sparkScale = 1 + charge * 2.0 + eisou * 2.0;
+    for (var si3 = 0; si3 < sparkCount; si3++) {
+      var sd3 = sparkData[si3];
+      sd3.age += dt;
+      if (sd3.age >= sd3.maxLife) {
+        sd3.age = 0;
+        var sa3=Math.random()*Math.PI*2, sp3=Math.acos(2*Math.random()-1), sv3=(300+Math.random()*700)*sparkScale;
+        sd3.vx=Math.sin(sp3)*Math.cos(sa3)*sv3; sd3.vy=Math.sin(sp3)*Math.sin(sa3)*sv3; sd3.vz=Math.cos(sp3)*sv3*0.25;
+        sparkPositions[si3*3]=sparkPositions[si3*3+1]=sparkPositions[si3*3+2]=0;
+      }
+      sparkPositions[si3*3]+=sd3.vx*dt; sparkPositions[si3*3+1]+=sd3.vy*dt; sparkPositions[si3*3+2]+=sd3.vz*dt;
+    }
+    sparkGeo.attributes.position.needsUpdate = true;
+    sparkPts.visible = true;
+
+    // Hide beam stuff
+    beamLines.forEach(function(bl) { bl.line.visible=false; });
+    beamGlows.forEach(function(bg) { bg.sprite.visible=false; });
+    burstFlash.visible=false; burstPts.visible=false;
+
+    // Thrust trigger
+    if (doThrust && eisou >= 1) {
+      state.mode='thrust'; state.thrustTimer=0;
+      var wvx=thrustVelX, wvy=-thrustVelY, mag=Math.sqrt(wvx*wvx+wvy*wvy);
+      if (mag<40) { state.thrustDirX=1; state.thrustDirY=0.3; }
+      else { state.thrustDirX=wvx/mag; state.thrustDirY=wvy/mag; }
+      var dlen=Math.sqrt(state.thrustDirX*state.thrustDirX+state.thrustDirY*state.thrustDirY);
+      state.thrustDirX/=dlen; state.thrustDirY/=dlen;
+    }
+  }
+
+  return { group: group, update: update, getState: function() { return state; } };
+}
+
+// ── CREATE EFFECTS ──────────────────────────────────────────────────
+
+var rasenganEffect = makeRasengan();  // right hand
+var chidoriEffect  = makeChidori();   // left hand
+scene.add(rasenganEffect.group);
+scene.add(chidoriEffect.group);
+
+// =====================================================================
+// COLLISION SYSTEM — Rasengan vs Chidori clash (Valley of the End)
+// =====================================================================
+
+var overlayEl = document.getElementById('overlay');
+var collisionState = { active: false, timer: 0, phase: 'none' };
+var colGroup = new THREE.Group();
+colGroup.visible = false;
+scene.add(colGroup);
+
+// Collision flash
+var colFlashMat = new THREE.SpriteMaterial({ map: texGlow, color: new THREE.Color(0xffffff), opacity: 0, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+var colFlash = new THREE.Sprite(colFlashMat);
+colGroup.add(colFlash);
+
+// Energy sphere (inner solid + outer wireframe)
+var colSphereInMat = new THREE.MeshBasicMaterial({ color: 0x6699ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+var colSphereIn = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 24), colSphereInMat);
+colGroup.add(colSphereIn);
+var colSphereOutMat = new THREE.MeshBasicMaterial({ color: 0xaaccff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, wireframe: true });
+var colSphereOut = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 28), colSphereOutMat);
+colGroup.add(colSphereOut);
+
+// 3 shockwave rings at different angles
+var colShocks = [];
+for (var csi = 0; csi < 3; csi++) {
+  var csMat = new THREE.MeshBasicMaterial({ color: 0xeeffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  var csRing = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 64), csMat);
+  if (csi === 1) csRing.rotation.x = Math.PI * 0.35;
+  if (csi === 2) csRing.rotation.y = Math.PI * 0.35;
+  colGroup.add(csRing);
+  colShocks.push({ ring: csRing, mat: csMat });
+}
+
+// 600 particles (half blue/rasengan, half white/chidori)
+var colPartCount = 600;
+var colPartPos = new Float32Array(colPartCount * 3);
+var colPartVel = [];
+var colPartColors = new Float32Array(colPartCount * 3);
+for (var cpi = 0; cpi < colPartCount; cpi++) {
+  var cth = Math.random()*Math.PI*2, cph = Math.acos(2*Math.random()-1);
+  var cspd = 150 + Math.random() * 800;
+  colPartVel.push({
+    vx: Math.sin(cph)*Math.cos(cth)*cspd,
+    vy: Math.sin(cph)*Math.sin(cth)*cspd,
+    vz: Math.cos(cph)*cspd*0.3,
+  });
+  colPartPos[cpi*3]=colPartPos[cpi*3+1]=colPartPos[cpi*3+2]=0;
+  if (cpi < colPartCount/2) { colPartColors[cpi*3]=0.4; colPartColors[cpi*3+1]=0.6; colPartColors[cpi*3+2]=1.0; }
+  else { colPartColors[cpi*3]=0.85; colPartColors[cpi*3+1]=0.9; colPartColors[cpi*3+2]=1.0; }
+}
+var colPartGeo = new THREE.BufferGeometry();
+colPartGeo.setAttribute('position', new THREE.BufferAttribute(colPartPos, 3));
+colPartGeo.setAttribute('color', new THREE.BufferAttribute(colPartColors, 3));
+var colPartMat = new THREE.PointsMaterial({ size: 10, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: false, vertexColors: true });
+var colPartPts = new THREE.Points(colPartGeo, colPartMat);
+colGroup.add(colPartPts);
+
+// Lightning bolts on sphere surface (12 bolts)
+var colBoltCount = 12, colBoltSegs = 10;
+var colBolts = [];
+for (var cbi = 0; cbi < colBoltCount; cbi++) {
+  var cbGeo = new THREE.BufferGeometry();
+  var cbPos = new Float32Array((colBoltSegs+1)*3);
+  cbGeo.setAttribute('position', new THREE.BufferAttribute(cbPos, 3));
+  var cbMat = new THREE.LineBasicMaterial({ color: cbi<6?0xffffff:0x88bbff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending });
+  var cbLine = new THREE.Line(cbGeo, cbMat);
+  colGroup.add(cbLine);
+  colBolts.push({ line: cbLine, geo: cbGeo, positions: cbPos, mat: cbMat });
+}
+
+function regenColBolt(positions, radius) {
+  var a1=Math.random()*Math.PI*2, p1=Math.acos(2*Math.random()-1);
+  var a2=Math.random()*Math.PI*2, p2=Math.acos(2*Math.random()-1);
+  var x1=Math.sin(p1)*Math.cos(a1)*radius, y1=Math.sin(p1)*Math.sin(a1)*radius, z1=Math.cos(p1)*radius*0.4;
+  var x2=Math.sin(p2)*Math.cos(a2)*radius, y2=Math.sin(p2)*Math.sin(a2)*radius, z2=Math.cos(p2)*radius*0.4;
+  for (var i=0; i<=colBoltSegs; i++) {
+    var t=i/colBoltSegs, jit=(i>0&&i<colBoltSegs)?radius*0.15:0;
+    positions[i*3]=x1+(x2-x1)*t+(Math.random()-0.5)*jit;
+    positions[i*3+1]=y1+(y2-y1)*t+(Math.random()-0.5)*jit;
+    positions[i*3+2]=z1+(z2-z1)*t+(Math.random()-0.5)*jit*0.4;
+  }
+}
+
+function triggerCollision() {
+  collisionState.active = true;
+  collisionState.timer = 0;
+  collisionState.phase = 'clash';
+  // Position at midpoint
+  var midSX = (rasenganHand.tx + chidoriHand.tx) / 2;
+  var midSY = (rasenganHand.ty + chidoriHand.ty) / 2;
+  var midW = screenToWorld(midSX, midSY);
+  colGroup.position.set(midW.x, midW.y, 0);
+  colGroup.visible = true;
+  // Reset particles
+  for (var i = 0; i < colPartCount; i++) colPartPos[i*3]=colPartPos[i*3+1]=colPartPos[i*3+2]=0;
+  // Hide both effects
+  rasenganEffect.group.visible = false;
+  chidoriEffect.group.visible = false;
+}
+
+function updateCollision(dt) {
+  var ct = collisionState.timer;
+  collisionState.timer += dt;
+  var t = performance.now() / 1000;
+
+  // Phase transitions
+  if (collisionState.phase === 'clash' && ct > 0.3) collisionState.phase = 'explode';
+  if (collisionState.phase === 'explode' && ct > 2.0) collisionState.phase = 'whiteout';
+  if (collisionState.phase === 'whiteout' && ct > 3.0) collisionState.phase = 'dark';
+  if (collisionState.phase === 'dark' && ct > 6.0) collisionState.phase = 'recover';
+  if (collisionState.phase === 'recover' && ct > 8.0) {
+    collisionState.active = false;
+    collisionState.phase = 'none';
+    colGroup.visible = false;
+    overlayEl.style.opacity = '0';
+    rasenganHand.holdTime = 0; chidoriHand.holdTime = 0;
+    rasenganEffect.getState().mode = 'idle';
+    chidoriEffect.getState().mode = 'idle';
+    rasenganEffect.group.visible = false;
+    chidoriEffect.group.visible = false;
+    statusEl.textContent = '手のひらをカメラに向けてください';
+    statusEl.style.visibility = 'visible';
+    return;
+  }
+
+  var phase = collisionState.phase;
+
+  // ── CLASH (0-0.3s): Initial contact flash
+  if (phase === 'clash') {
+    var cp = ct / 0.3;
+    colFlash.visible = true;
+    colFlash.scale.setScalar(100 + cp * 400);
+    colFlashMat.opacity = 0.7 + cp * 0.3;
+    colSphereIn.visible = true;
+    colSphereIn.scale.setScalar(20 + cp * 60);
+    colSphereInMat.opacity = 0.5 * cp;
+    colSphereOut.visible = true;
+    colSphereOut.scale.setScalar(30 + cp * 80);
+    colSphereOutMat.opacity = 0.3 * cp;
+    camShake = 20;
+    statusEl.textContent = '!!!';
+  }
+
+  // ── EXPLODE (0.3-2.0s): Expanding energy sphere
+  if (phase === 'explode') {
+    var ep = (ct - 0.3) / 1.7;
+    // Sphere expands
+    var sphR = 80 + ep * 500;
+    colSphereIn.scale.setScalar(sphR);
+    colSphereInMat.opacity = 0.5 * (1 - ep * 0.6);
+    colSphereOut.scale.setScalar(sphR * 1.2);
+    colSphereOutMat.opacity = 0.4 * (1 - ep * 0.5);
+    // Flash grows
+    colFlash.scale.setScalar(500 + ep * 3000);
+    colFlashMat.opacity = Math.min(1, 0.8 + ep * 0.3);
+    // Shockwaves
+    colShocks.forEach(function(cs, idx) {
+      cs.ring.visible = true;
+      var delay = idx * 0.15;
+      var sp = Math.max(0, (ct - 0.3 - delay) / 1.5);
+      cs.ring.scale.setScalar(sp * 800);
+      cs.mat.opacity = 0.7 * Math.max(0, 1 - sp * 1.5);
+    });
+    // Particles fly out
+    colPartPts.visible = true;
+    for (var pi = 0; pi < colPartCount; pi++) {
+      colPartPos[pi*3] += colPartVel[pi].vx * dt;
+      colPartPos[pi*3+1] += colPartVel[pi].vy * dt;
+      colPartPos[pi*3+2] += colPartVel[pi].vz * dt;
+    }
+    colPartGeo.attributes.position.needsUpdate = true;
+    colPartMat.opacity = 0.9 * (1 - ep * 0.5);
+    // Lightning on sphere
+    if (Math.random() > 0.3) {
+      colBolts.forEach(function(cb) {
+        regenColBolt(cb.positions, sphR);
+        cb.geo.attributes.position.needsUpdate = true;
+        cb.line.visible = Math.random() > 0.2;
+        cb.mat.opacity = 0.8 * (1 - ep * 0.4);
+      });
+    }
+    camShake = 25 * (1 - ep * 0.5);
+    statusEl.textContent = 'ナルト vs サスケ!!!';
+    // Start overlay white at end of explode
+    if (ep > 0.6) {
+      overlayEl.style.backgroundColor = '#fff';
+      overlayEl.style.opacity = String((ep - 0.6) / 0.4);
+    }
+  }
+
+  // ── WHITEOUT (2.0-3.0s): White → Black
+  if (phase === 'whiteout') {
+    var wp2 = (ct - 2.0) / 1.0;
+    // Transition white→black
+    var lum = Math.round(255 * (1 - wp2));
+    overlayEl.style.backgroundColor = 'rgb('+lum+','+lum+','+lum+')';
+    overlayEl.style.opacity = '1';
+    // Hide 3D
+    colGroup.visible = wp2 > 0.3;
+    if (wp2 > 0.3) {
+      colGroup.visible = false;
+      colFlash.visible = false;
+      colSphereIn.visible = false;
+      colSphereOut.visible = false;
+      colShocks.forEach(function(cs) { cs.ring.visible = false; });
+      colPartPts.visible = false;
+      colBolts.forEach(function(cb) { cb.line.visible = false; });
+    }
+    camShake = 5 * (1 - wp2);
+    statusEl.style.visibility = 'hidden';
+  }
+
+  // ── DARK (3.0-6.0s): Black screen
+  if (phase === 'dark') {
+    overlayEl.style.backgroundColor = '#000';
+    overlayEl.style.opacity = '1';
+    colGroup.visible = false;
+    var darkT = ct - 3.0;
+    if (darkT > 1.0) {
+      statusEl.style.visibility = 'visible';
+      statusEl.textContent = '終末の谷...';
+    }
+    camShake = 0;
+  }
+
+  // ── RECOVER (6.0-8.0s): Fade back in
+  if (phase === 'recover') {
+    var rp = (ct - 6.0) / 2.0;
+    overlayEl.style.backgroundColor = '#000';
+    overlayEl.style.opacity = String(1 - rp);
+    statusEl.style.visibility = 'visible';
+    statusEl.textContent = '手のひらをカメラに向けてください';
+    camShake = 0;
+  }
+}
+
+// =====================================================================
+// ENEMY / GAME SYSTEM
+// =====================================================================
+
+var scoreEl = document.getElementById('scoreDisplay');
+var waveEl  = document.getElementById('waveDisplay');
+
+// Enemy glow texture (red-orange orb)
+var texEnemy = makeRadialTex([
+  [0.00, 'rgba(255,120,60,1)'],  [0.15, 'rgba(255,60,20,0.85)'],
+  [0.40, 'rgba(200,25,5,0.4)'],  [0.70, 'rgba(120,10,0,0.1)'],
+  [1.00, 'rgba(60,5,0,0)'],
+], 128);
+
+// Ally glow texture (green)
+var texAlly = makeRadialTex([
+  [0.00, 'rgba(100,255,120,1)'],  [0.15, 'rgba(40,220,60,0.85)'],
+  [0.40, 'rgba(10,160,30,0.4)'],  [0.70, 'rgba(5,100,15,0.1)'],
+  [1.00, 'rgba(0,60,10,0)'],
+], 128);
+
+var ENEMY_TYPES = {
+  genin:  { hp: 1, size: 65,  speed: 90,  color: 0xff4422, score: 100, name: '下忍' },
+  chunin: { hp: 3, size: 85,  speed: 65,  color: 0xffaa22, score: 300, name: '中忍' },
+  jonin:  { hp: 5, size: 110, speed: 45,  color: 0xcc44ff, score: 500, name: '上忍' },
+};
+
+var ALLY_TYPES = {
+  ally_genin:  { hp: 1, size: 60,  speed: 70,  color: 0x22ff44, score: 0, name: '味方下忍' },
+  ally_chunin: { hp: 2, size: 80,  speed: 55,  color: 0x44ffaa, score: 0, name: '味方中忍' },
+};
+
+var enemies = [];
+var score = 0;
+var wave = 0;
+var spawnQueue = [];
+var waveDelay = 0;
+var gameStarted = false;
+var gameFailed = false;
+var deathFlashes = []; // pool of flash sprites for death effects
+
+var startScreenEl = document.getElementById('startScreen');
+var missionFailEl = document.getElementById('missionFail');
+var gameUIEl = document.getElementById('gameUI');
+var retryBtnEl = document.getElementById('retryBtn');
+
+document.getElementById('startBtn').addEventListener('click', function() {
+  startScreenEl.style.display = 'none';
+  gameUIEl.style.display = '';
+  gameStarted = true;
+  gameFailed = false;
+  startWave();
+});
+
+retryBtnEl.addEventListener('click', function() {
+  // Reset game
+  missionFailEl.classList.remove('show', 'visible');
+  missionFailEl.style.display = 'none';
+  enemies.forEach(function(e) { if (e.alive) { e.alive = false; e.group.visible = false; scene.remove(e.group); } });
+  enemies = [];
+  spawnQueue = [];
+  score = 0; wave = 0; waveDelay = 0;
+  gameFailed = false;
+  scoreEl.textContent = 'SCORE: 0';
+  waveEl.textContent = 'WAVE 1';
+  gameUIEl.style.display = '';
+  gameStarted = true;
+  startWave();
+});
+
+// Death flash pool (10 reusable)
+for (var dfi = 0; dfi < 10; dfi++) {
+  var dfMat = new THREE.SpriteMaterial({ map: texGlow, color: new THREE.Color(0xffaa44), opacity: 0, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+  var dfSpr = new THREE.Sprite(dfMat);
+  dfSpr.visible = false;
+  scene.add(dfSpr);
+  deathFlashes.push({ sprite: dfSpr, mat: dfMat, timer: 0, active: false });
+}
+
+function makeEnemy(type) {
+  var isAlly = type.indexOf('ally_') === 0;
+  var cfg = isAlly ? ALLY_TYPES[type] : ENEMY_TYPES[type];
+  var group = new THREE.Group();
+
+  // Main glow sprite
+  var tex = isAlly ? texAlly : texEnemy;
+  var eMat = new THREE.SpriteMaterial({ map: tex, color: new THREE.Color(cfg.color), opacity: 0.9, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+  var eSpr = new THREE.Sprite(eMat);
+  eSpr.scale.set(cfg.size, cfg.size, 1);
+  group.add(eSpr);
+
+  // HP bar background
+  var hpW = cfg.size * 0.7;
+  var hpBgMat = new THREE.MeshBasicMaterial({ color: isAlly ? 0x004400 : 0x440000, transparent: true, opacity: 0.6 });
+  var hpBg = new THREE.Mesh(new THREE.PlaneGeometry(hpW, 5), hpBgMat);
+  hpBg.position.y = cfg.size * 0.45;
+  group.add(hpBg);
+  // HP fill
+  var hpFillMat = new THREE.MeshBasicMaterial({ color: isAlly ? 0x44ff88 : 0x44ff44, transparent: true, opacity: 0.8 });
+  var hpFill = new THREE.Mesh(new THREE.PlaneGeometry(hpW - 2, 3), hpFillMat);
+  hpFill.position.y = cfg.size * 0.45;
+  group.add(hpFill);
+
+  // Spawn from random edge
+  var side = Math.floor(Math.random() * 4);
+  var sx, sy;
+  if (side===0) { sx = Math.random()*W; sy = -60; }
+  else if (side===1) { sx = W+60; sy = Math.random()*H; }
+  else if (side===2) { sx = Math.random()*W; sy = H+60; }
+  else { sx = -60; sy = Math.random()*H; }
+
+  var tx = 80 + Math.random()*(W-160);
+  var ty = 80 + Math.random()*(H-160);
+
+  scene.add(group);
+
+  return {
+    group: group, mat: eMat, hpFill: hpFill, hpW: hpW - 2,
+    type: type, cfg: cfg, isAlly: isAlly,
+    sx: sx, sy: sy, tx: tx, ty: ty,
+    hp: cfg.hp, maxHp: cfg.hp,
+    speed: cfg.speed + wave * 3,
+    alive: true, hitCD: 0, flashTimer: 0,
+    lifetime: 0,
+  };
+}
+
+function damageEnemy(enemy, dmg) {
+  if (!enemy.alive || enemy.hitCD > 0 || gameFailed) return;
+
+  // Hitting an ally = mission failure!
+  if (enemy.isAlly) {
+    triggerMissionFail();
+    return;
+  }
+
+  enemy.hp -= dmg;
+  enemy.hitCD = 0.3;
+  enemy.flashTimer = 0.15;
+  if (enemy.hp <= 0) {
+    enemy.alive = false;
+    enemy.group.visible = false;
+    scene.remove(enemy.group);
+    score += enemy.cfg.score;
+    scoreEl.textContent = 'SCORE: ' + score;
+    // Trigger death flash
+    for (var i = 0; i < deathFlashes.length; i++) {
+      if (!deathFlashes[i].active) {
+        deathFlashes[i].active = true;
+        deathFlashes[i].timer = 0;
+        deathFlashes[i].sprite.visible = true;
+        deathFlashes[i].sprite.position.copy(enemy.group.position);
+        deathFlashes[i].sprite.scale.setScalar(enemy.cfg.size * 2.5);
+        deathFlashes[i].mat.color.set(enemy.cfg.color);
+        break;
+      }
+    }
+  }
+  // Update HP bar
+  enemy.hpFill.scale.x = Math.max(0, enemy.hp / enemy.maxHp);
+}
+
+function triggerMissionFail() {
+  gameFailed = true;
+  gameStarted = false;
+  // Show fail screen with animation
+  missionFailEl.classList.add('show');
+  missionFailEl.style.background = 'rgba(0,0,0,0)';
+  missionFailEl.querySelector('.fail-score').textContent = 'SCORE: ' + score + ' | WAVE ' + wave;
+  // Fade in background
+  setTimeout(function() {
+    missionFailEl.style.background = 'rgba(80,0,0,0.85)';
+    missionFailEl.classList.add('visible');
+  }, 50);
+  // Hide game UI
+  gameUIEl.style.display = 'none';
+  statusEl.textContent = '';
+}
+
+function updateEnemies(dt) {
+  enemies.forEach(function(e) {
+    if (!e.alive) return;
+    e.lifetime += dt;
+    e.hitCD = Math.max(0, e.hitCD - dt);
+    e.flashTimer = Math.max(0, e.flashTimer - dt);
+
+    // Move toward target
+    var dx = e.tx - e.sx, dy = e.ty - e.sy;
+    var dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist > 8) {
+      e.sx += (dx/dist) * e.speed * dt;
+      e.sy += (dy/dist) * e.speed * dt;
+    } else {
+      e.tx = 80 + Math.random()*(W-160);
+      e.ty = 80 + Math.random()*(H-160);
+    }
+
+    // World position
+    var wp = screenToWorld(e.sx, e.sy);
+    e.group.position.set(wp.x, wp.y, 0);
+
+    // Flash on hit
+    e.mat.color.set(e.flashTimer > 0 ? 0xffffff : e.cfg.color);
+
+    // Despawn after 20s
+    if (e.lifetime > 20) {
+      e.alive = false; e.group.visible = false; scene.remove(e.group);
+    }
+  });
+
+  // Update death flashes
+  deathFlashes.forEach(function(df) {
+    if (!df.active) return;
+    df.timer += dt;
+    df.mat.opacity = Math.max(0, 1 - df.timer * 4);
+    df.sprite.scale.multiplyScalar(1 + dt * 8);
+    if (df.timer > 0.35) { df.active = false; df.sprite.visible = false; }
+  });
+
+  // Remove dead
+  enemies = enemies.filter(function(e) { return e.alive; });
+}
+
+function startWave() {
+  wave++;
+  waveEl.textContent = 'WAVE ' + wave;
+  var count = 2 + Math.floor(wave * 1.2);
+  var spawns = [];
+  for (var i = 0; i < count; i++) {
+    var type = 'genin';
+    if (wave > 2 && Math.random() < 0.25 + wave * 0.02) type = 'chunin';
+    if (wave > 5 && Math.random() < 0.10 + wave * 0.015) type = 'jonin';
+    spawns.push({ delay: i * 0.8, type: type });
+  }
+  // Add allies — chance increases with wave, 1~3 allies mixed in
+  var allyCount = Math.min(3, Math.floor(1 + wave * 0.3));
+  for (var ai = 0; ai < allyCount; ai++) {
+    // 30% chance per slot to actually spawn an ally (so not always)
+    if (Math.random() < 0.30 + wave * 0.03) {
+      var allyType = (wave > 4 && Math.random() < 0.4) ? 'ally_chunin' : 'ally_genin';
+      var allyDelay = (1 + Math.random() * (count - 1)) * 0.8;
+      spawns.push({ delay: allyDelay, type: allyType });
+    }
+  }
+  // Sort by delay so spawning order makes sense
+  spawns.sort(function(a, b) { return a.delay - b.delay; });
+  spawnQueue = spawnQueue.concat(spawns);
+}
+
+// Point-to-line-segment distance (2D)
+function distToSeg(px, py, x1, y1, x2, y2) {
+  var dx=x2-x1, dy=y2-y1, len2=dx*dx+dy*dy;
+  if (len2===0) return Math.sqrt((px-x1)*(px-x1)+(py-y1)*(py-y1));
+  var t=Math.max(0, Math.min(1, ((px-x1)*dx+(py-y1)*dy)/len2));
+  var projX=x1+t*dx, projY=y1+t*dy;
+  return Math.sqrt((px-projX)*(px-projX)+(py-projY)*(py-projY));
+}
+
+// ── HAND TRACKING ───────────────────────────────────────────────────
+
+var PALM_IDX = [0, 5, 9, 13, 17];
+function palmCenter(lms) {
+  var x = 0, y = 0;
+  PALM_IDX.forEach(function(i) { x += lms[i].x; y += lms[i].y; });
+  return { x: x / PALM_IDX.length, y: y / PALM_IDX.length };
+}
+var FINGER_PAIRS = [[8,6],[12,10],[16,14],[20,18]];
+function isHandOpen(lms) {
+  var wrist = lms[0], ext = 0;
+  FINGER_PAIRS.forEach(function(p) {
+    var tip = lms[p[0]], pip = lms[p[1]];
+    if (Math.hypot(tip.x-wrist.x, tip.y-wrist.y) > Math.hypot(pip.x-wrist.x, pip.y-wrist.y) * 1.08) ext++;
+  });
+  return ext >= 3;
+}
+
+// Separate states for each effect
+var rasenganHand = { detected: false, open: false, prevOpen: false, tx: W*0.5, ty: H*0.5, holdTime: 0, posHistory: [], throwVelX: 0, throwVelY: 0 };
+var chidoriHand  = { detected: false, open: false, prevOpen: false, tx: W*0.5, ty: H*0.5, holdTime: 0, posHistory: [], throwVelX: 0, throwVelY: 0 };
+
+var mpHands = new Hands({
+  locateFile: function(f) { return 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/' + f; },
+});
+mpHands.setOptions({
+  maxNumHands: 2,
+  modelComplexity: 1,
+  minDetectionConfidence: 0.65,
+  minTrackingConfidence: 0.5,
+});
+
+mpHands.onResults(function(results) {
+  var landmarks = results.multiHandLandmarks || [];
+  var handedness = results.multiHandedness || [];
+  var now = performance.now();
+
+  rasenganHand.detected = false;
+  chidoriHand.detected = false;
+
+  landmarks.forEach(function(lms, idx) {
+    var label = (handedness[idx] && handedness[idx].label) || 'Left';
+    // MediaPipe "Left" in image = user's right hand (mirrored) → Rasengan
+    // MediaPipe "Right" in image = user's left hand (mirrored) → Chidori
+    var s = (label === 'Left') ? rasenganHand : chidoriHand;
+
+    var palm = palmCenter(lms);
+    var screenX = (1 - palm.x) * W;
+    var screenY = palm.y * H;
+
+    s.detected = true;
+    s.prevOpen = s.open;
+    s.open = isHandOpen(lms);
+    s.tx = screenX;
+    s.ty = screenY;
+
+    s.posHistory.push({ x: screenX, y: screenY, t: now });
+    while (s.posHistory.length > 10) s.posHistory.shift();
+    if (s.posHistory.length >= 2) {
+      var newest = s.posHistory[s.posHistory.length - 1], oldest = s.posHistory[0];
+      var dtMs = newest.t - oldest.t;
+      if (dtMs > 0) { s.throwVelX = (newest.x - oldest.x) / (dtMs/1000); s.throwVelY = (newest.y - oldest.y) / (dtMs/1000); }
+    }
+  });
+
+  if (landmarks.length === 0) {
+    statusEl.textContent = '手のひらをカメラに向けてください';
+  }
+});
+
+var mpCam = new Camera(videoEl, {
+  onFrame: async function() { await mpHands.send({ image: videoEl }); },
+  width: 1280, height: 720,
+});
+mpCam.start()
+  .then(function() { statusEl.textContent = '手のひらをカメラに向けてください'; })
+  .catch(function(err) { statusEl.textContent = 'Camera error: ' + err.message; });
+
+// ── ANIMATION LOOP ──────────────────────────────────────────────────
+
+var lastTs = 0, camShake = 0;
+
+function processHand(effect, hand, dt) {
+  var eState = effect.getState();
+  var doAction = false;
+
+  if (hand.detected && hand.prevOpen && !hand.open && eState.mode === 'hand' && hand.holdTime >= 6) {
+    doAction = true;
+  }
+
+  if (eState.mode === 'hand') {
+    if (hand.open) { hand.holdTime += dt; }
+    else if (!doAction) { hand.holdTime = Math.max(0, hand.holdTime - dt * 3); }
+  } else if (eState.mode === 'idle') {
+    hand.holdTime = 0; hand.posHistory = [];
+  }
+
+  effect.update(dt, hand.open, hand.tx, hand.ty, hand.holdTime, doAction, hand.throwVelX, hand.throwVelY);
+
+  if (doAction) { hand.holdTime = 0; hand.posHistory = []; }
+  return eState;
+}
+
+function getStatusText(hand, holdTime, type) {
+  if (type === 'rasengan') {
+    var oodama = Math.max(0, Math.min(1, (holdTime - 1) / 2));
+    var rshuriken = Math.max(0, Math.min(1, (holdTime - 3) / 3));
+    if (rshuriken >= 1) return '風遁・螺旋手裏剣!! [握って投げろ!]';
+    if (rshuriken > 0) return '風遁チャージ中... ' + Math.round(rshuriken * 100) + '%';
+    if (oodama >= 1) return '大玉螺旋丸!!';
+    if (oodama > 0) return 'チャージ中... ' + Math.round(oodama * 100) + '%';
+    return '螺旋丸!';
+  } else {
+    var charge = Math.max(0, Math.min(1, (holdTime - 1) / 2));
+    var eisou  = Math.max(0, Math.min(1, (holdTime - 3) / 3));
+    if (eisou >= 1) return '千鳥鋭槍!! [握って放て!]';
+    if (eisou > 0) return '千鳥鋭槍チャージ中... ' + Math.round(eisou * 100) + '%';
+    if (charge >= 1) return '千鳥!!';
+    if (charge > 0) return '千鳥チャージ中... ' + Math.round(charge * 100) + '%';
+    return '千鳥!';
+  }
+}
+
+function animate(ts) {
+  requestAnimationFrame(animate);
+  var dt = Math.min((ts - lastTs) / 1000, 0.05);
+  lastTs = ts;
+
+  // ── Collision active: update collision + enemies still animate
+  if (collisionState.active) {
+    updateCollision(dt);
+    updateEnemies(dt);
+    // Screen-clear: damage all enemies on collision trigger (allies too — careful!)
+    if (collisionState.timer < dt * 2 && collisionState.phase === 'clash') {
+      var hasAlly = false;
+      enemies.forEach(function(e) { if (e.alive && e.isAlly) hasAlly = true; });
+      enemies.forEach(function(e) { if (!e.isAlly) damageEnemy(e, 999); });
+      if (hasAlly) damageEnemy(enemies.filter(function(e) { return e.isAlly && e.alive; })[0], 999);
+    }
+    if (camShake > 0.5) {
+      camera.position.x=(Math.random()-0.5)*camShake;
+      camera.position.y=(Math.random()-0.5)*camShake;
+      camShake *= Math.pow(0.05, dt);
+    } else { camera.position.x=0; camera.position.y=0; camShake=0; }
+    renderer.render(scene, camera);
+    return;
+  }
+
+  // ── Game not started or failed: skip game logic
+  if (!gameStarted || gameFailed) {
+    processHand(rasenganEffect, rasenganHand, dt);
+    processHand(chidoriEffect, chidoriHand, dt);
+    if (camShake > 0.5) {
+      camera.position.x=(Math.random()-0.5)*camShake;
+      camera.position.y=(Math.random()-0.5)*camShake;
+      camShake *= Math.pow(0.05, dt);
+    } else { camera.position.x=0; camera.position.y=0; camShake=0; }
+    renderer.render(scene, camera);
+    return;
+  }
+
+  // ── Spawn queue
+  if (spawnQueue.length > 0) {
+    spawnQueue[0].delay -= dt;
+    if (spawnQueue[0].delay <= 0) {
+      var info = spawnQueue.shift();
+      enemies.push(makeEnemy(info.type));
+    }
+  }
+
+  // ── Wave management (only count actual enemies, not allies)
+  var realEnemyCount = 0;
+  enemies.forEach(function(e) { if (e.alive && !e.isAlly) realEnemyCount++; });
+  if (gameStarted && realEnemyCount === 0 && spawnQueue.length === 0) {
+    waveDelay += dt;
+    if (waveDelay > 2.5) {
+      waveDelay = 0;
+      startWave();
+      statusEl.textContent = '== WAVE ' + wave + ' ==';
+    }
+  } else {
+    waveDelay = 0;
+  }
+
+  var rState = processHand(rasenganEffect, rasenganHand, dt);
+  var cState = processHand(chidoriEffect, chidoriHand, dt);
+
+  // ── Collision detection
+  if (rState.mode === 'hand' && cState.mode === 'hand' &&
+      rasenganHand.open && chidoriHand.open &&
+      rasenganHand.holdTime > 0.5 && chidoriHand.holdTime > 0.5) {
+    var cdx = rasenganHand.tx - chidoriHand.tx;
+    var cdy = rasenganHand.ty - chidoriHand.ty;
+    if (Math.sqrt(cdx*cdx + cdy*cdy) < 130) {
+      triggerCollision();
+      renderer.render(scene, camera);
+      return;
+    }
+  }
+
+  // ── Update enemies
+  updateEnemies(dt);
+
+  // ── HIT DETECTION ──
+  enemies.forEach(function(e) {
+    if (!e.alive) return;
+    var eW = screenToWorld(e.sx, e.sy);
+
+    // Melee: Rasengan hand near enemy
+    if (rasenganHand.open && rasenganHand.holdTime > 0.3 && rState.mode === 'hand') {
+      var rW = screenToWorld(rasenganHand.tx, rasenganHand.ty);
+      var d1 = Math.sqrt((eW.x-rW.x)*(eW.x-rW.x)+(eW.y-rW.y)*(eW.y-rW.y));
+      if (d1 < 90 + rasenganHand.holdTime * 20) damageEnemy(e, 1);
+    }
+
+    // Melee: Chidori hand near enemy
+    if (chidoriHand.open && chidoriHand.holdTime > 0.3 && cState.mode === 'hand') {
+      var cW = screenToWorld(chidoriHand.tx, chidoriHand.ty);
+      var d2 = Math.sqrt((eW.x-cW.x)*(eW.x-cW.x)+(eW.y-cW.y)*(eW.y-cW.y));
+      if (d2 < 80 + chidoriHand.holdTime * 15) damageEnemy(e, 1);
+    }
+
+    // Thrown Rasenshuriken hits enemies in path
+    if (rState.mode === 'thrown') {
+      var rg = rasenganEffect.group;
+      var d3 = Math.sqrt((eW.x-rg.position.x)*(eW.x-rg.position.x)+(eW.y-rg.position.y)*(eW.y-rg.position.y));
+      if (d3 < 180) damageEnemy(e, 3);
+    }
+
+    // Rasenshuriken explosion AoE
+    if (rState.mode === 'exploding') {
+      var rg2 = rasenganEffect.group;
+      var d4 = Math.sqrt((eW.x-rg2.position.x)*(eW.x-rg2.position.x)+(eW.y-rg2.position.y)*(eW.y-rg2.position.y));
+      if (d4 < 400 + rState.explodeTimer * 200) damageEnemy(e, 2);
+    }
+
+    // Chidori beam pierces enemies
+    if (cState.mode === 'thrust') {
+      var cg = chidoriEffect.group;
+      var cs = chidoriEffect.getState();
+      var beamLen = Math.min(900, cs.thrustTimer * 4000) * 2.0;
+      var bx1 = cg.position.x, by1 = cg.position.y;
+      var bx2 = bx1 + cs.thrustDirX * beamLen, by2 = by1 + cs.thrustDirY * beamLen;
+      if (distToSeg(eW.x, eW.y, bx1, by1, bx2, by2) < 100) damageEnemy(e, 2);
+    }
+
+    // Chidori burst AoE
+    if (cState.mode === 'burst') {
+      var cg2 = chidoriEffect.group;
+      var cs2 = chidoriEffect.getState();
+      var tipX = cg2.position.x + cs2.thrustDirX * 900 * 2.0;
+      var tipY = cg2.position.y + cs2.thrustDirY * 900 * 2.0;
+      var d5 = Math.sqrt((eW.x-tipX)*(eW.x-tipX)+(eW.y-tipY)*(eW.y-tipY));
+      if (d5 < 300) damageEnemy(e, 2);
+    }
+  });
+
+  // Screen shake
+  if (rState.mode === 'exploding') camShake = Math.max(camShake, Math.max(0, 1 - rState.explodeTimer / 2) * 18);
+  if (cState.mode === 'burst') camShake = Math.max(camShake, Math.max(0, 1 - cState.burstTimer / 1.5) * 14);
+
+  // Status text
+  var rActive = rState.mode === 'hand' && rasenganHand.open;
+  var cActive = cState.mode === 'hand' && chidoriHand.open;
+  var rSpecial = rState.mode === 'thrown' || rState.mode === 'exploding';
+  var cSpecial = cState.mode === 'thrust' || cState.mode === 'burst';
+
+  if (rSpecial && cSpecial) {
+    statusEl.textContent = '風遁・螺旋手裏剣!!! / 千鳥鋭槍!!!';
+  } else if (rSpecial) {
+    statusEl.textContent = rState.mode === 'thrown' ? '喰らえ!!!' : '風遁・螺旋手裏剣!!!';
+  } else if (cSpecial) {
+    statusEl.textContent = cState.mode === 'thrust' ? '千鳥鋭槍!!!' : '千鳥鋭槍!!!';
+  } else if (rActive && cActive) {
+    statusEl.textContent = getStatusText(rasenganHand, rasenganHand.holdTime, 'rasengan') + ' | ' + getStatusText(chidoriHand, chidoriHand.holdTime, 'chidori');
+  } else if (rActive) {
+    statusEl.textContent = getStatusText(rasenganHand, rasenganHand.holdTime, 'rasengan');
+  } else if (cActive) {
+    statusEl.textContent = getStatusText(chidoriHand, chidoriHand.holdTime, 'chidori');
+  } else if (gameStarted && enemies.length > 0) {
+    var enemyCount = 0, allyCount = 0;
+    enemies.forEach(function(e) { if (e.alive) { if (e.isAlly) allyCount++; else enemyCount++; } });
+    var msg = '敵を倒せ! 残り ' + enemyCount + '体';
+    if (allyCount > 0) msg += ' ⚠味方' + allyCount + '体';
+    statusEl.textContent = msg;
+  }
+
+  // Camera shake
+  if (camShake > 0.5) {
+    camera.position.x=(Math.random()-0.5)*camShake;
+    camera.position.y=(Math.random()-0.5)*camShake;
+    camShake *= Math.pow(0.05, dt);
+  } else { camera.position.x=0; camera.position.y=0; camShake=0; }
+
+  renderer.render(scene, camera);
+}
+
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
