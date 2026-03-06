@@ -316,6 +316,36 @@
       font: 600 14px/1 'Segoe UI', system-ui, sans-serif;
       color: rgba(180,180,200,0.6);
     }
+    .snap-del-btn {
+      margin-top: 6px; padding: 3px 12px; font: 600 11px/1 'Segoe UI', system-ui, sans-serif;
+      color: #ff8877; background: rgba(180,40,30,0.3); border: 1px solid rgba(200,60,40,0.4);
+      border-radius: 4px; cursor: pointer;
+    }
+    .snap-del-btn:hover { background: rgba(220,50,30,0.6); color: #fff; }
+
+    /* Share prompt on mission fail */
+    #missionFail .share-section {
+      margin-top: 20px; opacity: 0; transition: opacity 0.8s ease 1.2s;
+      display: flex; flex-direction: column; align-items: center;
+    }
+    #missionFail.visible .share-section { opacity: 1; }
+    #missionFail .share-label {
+      font: 500 15px/1 'Segoe UI', system-ui, sans-serif;
+      color: rgba(220,200,180,0.7); margin-bottom: 10px;
+    }
+    #missionFail .share-x-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 24px; font: 700 16px/1 'Segoe UI', system-ui, sans-serif;
+      color: #fff; background: #000; border: 2px solid #333; border-radius: 30px;
+      cursor: pointer; text-decoration: none;
+      transition: background 0.2s;
+    }
+    #missionFail .share-x-btn:hover { background: #1a1a1a; border-color: #555; }
+    #missionFail .share-x-btn svg { width: 18px; height: 18px; fill: #fff; }
+    #missionFail .share-snap-preview {
+      width: 160px; height: auto; border-radius: 8px; margin-bottom: 10px;
+      border: 1px solid rgba(255,100,60,0.3);
+    }
   </style>
 </head>
 <body>
@@ -416,6 +446,14 @@
   <div class="fail-text">任務失敗</div>
   <div class="fail-reason">味方忍者を攻撃した！</div>
   <div class="fail-score"></div>
+  <div class="share-section">
+    <img class="share-snap-preview" id="failSnapPreview" src="" alt="">
+    <div class="share-label">結果をシェアしますか？</div>
+    <a class="share-x-btn" id="shareXBtn" href="#" target="_blank">
+      <svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+      Xでシェア
+    </a>
+  </div>
   <div class="retry-btn" id="retryBtn">もう一度</div>
 </div>
 <div id="rankingOverlay">
@@ -1664,28 +1702,34 @@ var SNAP_KEY = 'ninjaSnaps';
 function loadSnaps() { try { return JSON.parse(localStorage.getItem(SNAP_KEY)) || []; } catch(e) { return []; } }
 function saveSnaps(snaps) { localStorage.setItem(SNAP_KEY, JSON.stringify(snaps)); }
 
-function takeScreenshot() {
-  if (!videoEl.videoWidth) return; // Video not ready
+var lastSnapDataUrl = ''; // Store latest snap for sharing
+
+function takeScreenshot(label) {
+  if (!videoEl.videoWidth) return '';
   var snapCanvas = document.createElement('canvas');
   snapCanvas.width = videoEl.videoWidth;
   snapCanvas.height = videoEl.videoHeight;
   var ctx = snapCanvas.getContext('2d');
-  // Mirror to match what user sees on screen
   ctx.translate(snapCanvas.width, 0);
   ctx.scale(-1, 1);
   ctx.drawImage(videoEl, 0, 0, snapCanvas.width, snapCanvas.height);
   var dataUrl = snapCanvas.toDataURL('image/jpeg', 0.7);
+  lastSnapDataUrl = dataUrl;
   var snaps = loadSnaps();
   snaps.push({
     img: dataUrl,
     time: new Date().toLocaleString('ja-JP'),
     score: score,
     wave: wave,
+    label: label || '',
   });
-  // Keep max 50 snapshots to avoid localStorage overflow
   if (snaps.length > 50) snaps = snaps.slice(-50);
   saveSnaps(snaps);
+  return dataUrl;
 }
+
+// Track if rasengan snap was already taken this activation
+var rasenganSnapTaken = false;
 
 var countdownOverlayEl = document.getElementById('countdownOverlay');
 var countdownNumEl = document.getElementById('countdownNum');
@@ -1704,8 +1748,6 @@ function startCountdown(callback) {
       clearInterval(interval);
       countdownNumEl.textContent = '開始!';
       countdownLabelEl.textContent = '';
-      // Take screenshot at game start
-      takeScreenshot();
       setTimeout(function() {
         countdownOverlayEl.classList.remove('show');
         callback();
@@ -1746,16 +1788,27 @@ function renderAdminSnaps() {
     snapGridEl.innerHTML = '<div style="color:rgba(200,200,220,0.4);padding:40px;text-align:center;grid-column:1/-1;">スナップショットはまだありません</div>';
     return;
   }
-  // Show newest first
   for (var i = snaps.length - 1; i >= 0; i--) {
     var s = snaps[i];
     var card = document.createElement('div');
     card.className = 'snap-card';
+    var labelTag = s.label ? '<span style="color:#ffaa33;font-weight:700;">' + escapeHtml(s.label) + '</span><br>' : '';
     card.innerHTML =
       '<img src="' + s.img + '" alt="snap">' +
-      '<div class="snap-info"><strong>' + escapeHtml(s.time) + '</strong><br>SCORE: ' + (s.score||0) + ' / WAVE ' + (s.wave||0) + '</div>';
+      '<div class="snap-info">' + labelTag + '<strong>' + escapeHtml(s.time) + '</strong><br>SCORE: ' + (s.score||0) + ' / WAVE ' + (s.wave||0) +
+      '<br><button class="snap-del-btn" data-idx="' + i + '">削除</button></div>';
     snapGridEl.appendChild(card);
   }
+  // Attach delete handlers
+  snapGridEl.querySelectorAll('.snap-del-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var idx = parseInt(this.getAttribute('data-idx'));
+      var snaps2 = loadSnaps();
+      snaps2.splice(idx, 1);
+      saveSnaps(snaps2);
+      renderAdminSnaps();
+    });
+  });
 }
 
 if (window.location.search.indexOf('admin') !== -1) {
@@ -1899,12 +1952,26 @@ function triggerMissionFail(reason) {
   stopRasenganSound(); stopChidoriSound(); playFailSound();
   var finalScore = score;
   var finalWave = wave;
+  // Take fail screenshot
+  var failSnap = takeScreenshot('任務失敗');
   missionFailEl.querySelector('.fail-reason').textContent = reason || '任務失敗！';
+  // Show fail screenshot preview
+  var previewEl = document.getElementById('failSnapPreview');
+  if (failSnap) {
+    previewEl.src = failSnap;
+    previewEl.style.display = '';
+  } else {
+    previewEl.style.display = 'none';
+  }
+  // Set up X share link
+  var shareText = '【忍術バトル】任務失敗！\nSCORE: ' + finalScore + ' | WAVE ' + finalWave + '\n' + (reason || '') + '\n\n里を守れなかった…もう一度挑戦する！';
+  var shareUrl = 'https://hackjpnteam.github.io/naruto-jutsu-simulator/';
+  var xUrl = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(shareText) + '&url=' + encodeURIComponent(shareUrl);
+  document.getElementById('shareXBtn').href = xUrl;
   // Show fail screen with animation
   missionFailEl.classList.add('show');
   missionFailEl.style.background = 'rgba(0,0,0,0)';
   missionFailEl.querySelector('.fail-score').textContent = 'SCORE: ' + finalScore + ' | WAVE ' + finalWave;
-  // Fade in background
   setTimeout(function() {
     missionFailEl.style.background = 'rgba(80,0,0,0.85)';
     missionFailEl.classList.add('visible');
@@ -1913,7 +1980,6 @@ function triggerMissionFail(reason) {
   setTimeout(function() {
     showRankingScreen(true, finalScore, finalWave);
   }, 1500);
-  // Hide game UI
   gameUIEl.style.display = 'none';
   statusEl.textContent = '';
 }
@@ -2485,11 +2551,17 @@ function animate(ts) {
   var cState = processHand(chidoriEffect, chidoriHand, dt);
 
   // ── Sound management ──
-  // Rasengan sound
+  // Rasengan sound + snap
   if (rState.mode === 'hand' && rasenganHand.open && rasenganHand.holdTime > 0.2) {
     startRasenganSound(); updateRasenganSound(rasenganHand.holdTime);
+    // Take snapshot when rasengan first activates
+    if (!rasenganSnapTaken && rasenganHand.holdTime > 0.5) {
+      rasenganSnapTaken = true;
+      takeScreenshot('螺旋丸');
+    }
   } else if (rState.mode !== 'hand' || !rasenganHand.open) {
     stopRasenganSound();
+    if (!rasenganHand.open) rasenganSnapTaken = false;
   }
   // Chidori sound
   if (cState.mode === 'hand' && chidoriHand.open && chidoriHand.holdTime > 0.2) {
