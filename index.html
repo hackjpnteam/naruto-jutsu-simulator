@@ -2123,12 +2123,16 @@ function startCamera() {
 var audioCtx = null;
 function ensureAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return audioCtx; }
 
-// Rasengan: whooshing wind loop
+// Rasengan → Rasenshuriken sound system
 var rasenganSoundNode = null;
+var rasenshurikenPhase = false; // tracks if we already switched to shuriken sound
+
 function startRasenganSound() {
   if (rasenganSoundNode) return;
   var ctx = ensureAudio();
-  // Layered noise + filtered for wind effect
+  rasenshurikenPhase = false;
+
+  // Base: spinning wind noise
   var bufSize = ctx.sampleRate * 2;
   var buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
   var data = buf.getChannelData(0);
@@ -2136,22 +2140,147 @@ function startRasenganSound() {
   var noise = ctx.createBufferSource();
   noise.buffer = buf; noise.loop = true;
   var bp = ctx.createBiquadFilter();
-  bp.type = 'bandpass'; bp.frequency.value = 400; bp.Q.value = 0.8;
-  var gain = ctx.createGain(); gain.gain.value = 0;
-  gain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + 0.3);
-  noise.connect(bp); bp.connect(gain); gain.connect(ctx.destination);
+  bp.type = 'bandpass'; bp.frequency.value = 350; bp.Q.value = 0.8;
+  var noiseGain = ctx.createGain(); noiseGain.gain.value = 0;
+  noiseGain.gain.linearRampToValueAtTime(0.16, ctx.currentTime + 0.3);
+  noise.connect(bp); bp.connect(noiseGain); noiseGain.connect(ctx.destination);
   noise.start();
-  rasenganSoundNode = { noise: noise, gain: gain, bp: bp };
+
+  // High-pitched "キーン" wind blade (starts silent, fades in during rasenshuriken)
+  var keenOsc = ctx.createOscillator();
+  keenOsc.type = 'sine'; keenOsc.frequency.value = 3200;
+  var keenOsc2 = ctx.createOscillator();
+  keenOsc2.type = 'sine'; keenOsc2.frequency.value = 4800;
+  var keenGain = ctx.createGain(); keenGain.gain.value = 0;
+  var keenGain2 = ctx.createGain(); keenGain2.gain.value = 0;
+  keenOsc.connect(keenGain); keenGain.connect(ctx.destination);
+  keenOsc2.connect(keenGain2); keenGain2.connect(ctx.destination);
+  keenOsc.start(); keenOsc2.start();
+
+  // Sharp wind cutting noise (highpass filtered)
+  var windBuf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+  var windData = windBuf.getChannelData(0);
+  for (var i2 = 0; i2 < bufSize; i2++) {
+    windData[i2] = (Math.random() * 2 - 1) * (0.3 + 0.7 * Math.abs(Math.sin(i2 / 200)));
+  }
+  var windNoise = ctx.createBufferSource();
+  windNoise.buffer = windBuf; windNoise.loop = true;
+  var windHp = ctx.createBiquadFilter();
+  windHp.type = 'highpass'; windHp.frequency.value = 3000; windHp.Q.value = 3;
+  var windGain = ctx.createGain(); windGain.gain.value = 0;
+  windNoise.connect(windHp); windHp.connect(windGain); windGain.connect(ctx.destination);
+  windNoise.start();
+
+  rasenganSoundNode = {
+    noise: noise, bp: bp, noiseGain: noiseGain,
+    keenOsc: keenOsc, keenOsc2: keenOsc2, keenGain: keenGain, keenGain2: keenGain2,
+    windNoise: windNoise, windHp: windHp, windGain: windGain,
+  };
 }
+
+function playRasenshurikenTransition() {
+  // One-shot "シャキーン" evolution sound
+  var ctx = ensureAudio();
+  // Sharp metallic rise
+  var osc = ctx.createOscillator(); osc.type = 'sawtooth';
+  osc.frequency.value = 1500;
+  osc.frequency.exponentialRampToValueAtTime(5000, ctx.currentTime + 0.3);
+  var g = ctx.createGain(); g.gain.value = 0.2;
+  g.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.15);
+  g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+  var hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2000;
+  osc.connect(hp); hp.connect(g); g.connect(ctx.destination);
+  osc.start(); osc.stop(ctx.currentTime + 0.7);
+  // Metallic ping
+  var ping = ctx.createOscillator(); ping.type = 'sine'; ping.frequency.value = 4500;
+  var pg = ctx.createGain(); pg.gain.value = 0.15;
+  pg.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+  ping.connect(pg); pg.connect(ctx.destination);
+  ping.start(); ping.stop(ctx.currentTime + 0.9);
+}
+
 function updateRasenganSound(holdTime) {
   if (!rasenganSoundNode) return;
-  var intensity = Math.min(1, holdTime / 6);
-  rasenganSoundNode.gain.gain.value = 0.12 + intensity * 0.2;
-  rasenganSoundNode.bp.frequency.value = 300 + intensity * 600;
+  var n = rasenganSoundNode;
+  var rshuriken = Math.max(0, Math.min(1, (holdTime - 3) / 3));
+
+  if (rshuriken < 0.01) {
+    // Pure rasengan: low spinning wind
+    var intensity = Math.min(1, holdTime / 3);
+    n.noiseGain.gain.value = 0.12 + intensity * 0.12;
+    n.bp.frequency.value = 300 + intensity * 400;
+    n.keenGain.gain.value = 0;
+    n.keenGain2.gain.value = 0;
+    n.windGain.gain.value = 0;
+    rasenshurikenPhase = false;
+  } else {
+    // Rasenshuriken: キーン wind cutting
+    if (!rasenshurikenPhase) {
+      rasenshurikenPhase = true;
+      playRasenshurikenTransition();
+    }
+    // Fade down base noise, bring up keen + wind cut
+    n.noiseGain.gain.value = 0.08 * (1 - rshuriken * 0.5);
+    n.bp.frequency.value = 600 + rshuriken * 1500;
+    n.keenGain.gain.value = rshuriken * 0.06;
+    n.keenGain2.gain.value = rshuriken * 0.03;
+    n.keenOsc.frequency.value = 3200 + rshuriken * 800 + Math.sin(performance.now()/200) * 150;
+    n.keenOsc2.frequency.value = 4800 + rshuriken * 600;
+    n.windGain.gain.value = rshuriken * 0.18;
+    n.windHp.frequency.value = 2500 + rshuriken * 2000;
+  }
 }
+
 function stopRasenganSound() {
   if (!rasenganSoundNode) return;
-  try { rasenganSoundNode.gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.2); setTimeout(function() { try { rasenganSoundNode.noise.stop(); } catch(e){} rasenganSoundNode = null; }, 250); } catch(e) { rasenganSoundNode = null; }
+  var n = rasenganSoundNode;
+  rasenshurikenPhase = false;
+  try {
+    var t = audioCtx.currentTime;
+    n.noiseGain.gain.linearRampToValueAtTime(0, t + 0.15);
+    n.keenGain.gain.linearRampToValueAtTime(0, t + 0.15);
+    n.keenGain2.gain.linearRampToValueAtTime(0, t + 0.15);
+    n.windGain.gain.linearRampToValueAtTime(0, t + 0.15);
+    setTimeout(function() {
+      try { n.noise.stop(); n.keenOsc.stop(); n.keenOsc2.stop(); n.windNoise.stop(); } catch(e){}
+      rasenganSoundNode = null;
+    }, 200);
+  } catch(e) { rasenganSoundNode = null; }
+}
+
+// Thrown Rasenshuriken: cutting wind "キィィーン" flying sound
+var thrownSoundNode = null;
+function playThrownRasenshurikenSound() {
+  if (thrownSoundNode) return;
+  var ctx = ensureAudio();
+  // High sine sweep: キーーン
+  var osc = ctx.createOscillator(); osc.type = 'sine';
+  osc.frequency.value = 4000;
+  osc.frequency.linearRampToValueAtTime(5500, ctx.currentTime + 0.5);
+  osc.frequency.linearRampToValueAtTime(3000, ctx.currentTime + 1.0);
+  var g = ctx.createGain(); g.gain.value = 0.08;
+  g.gain.linearRampToValueAtTime(0.06, ctx.currentTime + 0.8);
+  g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.1);
+  osc.connect(g); g.connect(ctx.destination);
+  osc.start(); osc.stop(ctx.currentTime + 1.2);
+  // Wind shear noise
+  var bufSize = ctx.sampleRate;
+  var buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+  var d = buf.getChannelData(0);
+  for (var i = 0; i < bufSize; i++) d[i] = (Math.random()*2-1) * (0.4 + 0.6*Math.abs(Math.sin(i/120)));
+  var noise = ctx.createBufferSource(); noise.buffer = buf;
+  var hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 4000; hp.Q.value = 4;
+  var ng = ctx.createGain(); ng.gain.value = 0.2;
+  ng.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.0);
+  noise.connect(hp); hp.connect(ng); ng.connect(ctx.destination);
+  noise.start(); noise.stop(ctx.currentTime + 1.1);
+  thrownSoundNode = { osc: osc, noise: noise };
+  setTimeout(function() { thrownSoundNode = null; }, 1200);
+}
+function stopThrownSound() {
+  if (!thrownSoundNode) return;
+  try { thrownSoundNode.osc.stop(); thrownSoundNode.noise.stop(); } catch(e){}
+  thrownSoundNode = null;
 }
 
 // Chidori: crackling electric
@@ -2369,8 +2498,8 @@ function animate(ts) {
     stopChidoriSound();
   }
   // Explosion triggers
-  if (rState.mode === 'exploding' && prevRState !== 'exploding') { playExplosionSound(); stopRasenganSound(); }
-  if (rState.mode === 'thrown' && prevRState !== 'thrown') stopRasenganSound();
+  if (rState.mode === 'exploding' && prevRState !== 'exploding') { playExplosionSound(); stopRasenganSound(); stopThrownSound(); }
+  if (rState.mode === 'thrown' && prevRState !== 'thrown') { stopRasenganSound(); playThrownRasenshurikenSound(); }
   if (cState.mode === 'burst' && prevCState !== 'burst') { playExplosionSound(); stopChidoriSound(); }
   if (cState.mode === 'thrust' && prevCState !== 'thrust') stopChidoriSound();
   prevRState = rState.mode; prevCState = cState.mode;
