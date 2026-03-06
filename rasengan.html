@@ -1565,11 +1565,20 @@ function resetGame() {
 }
 
 document.getElementById('startBtn').addEventListener('click', function() {
-  startScreenEl.style.display = 'none';
-  gameUIEl.style.display = '';
-  resetGame();
-  gameStarted = true;
-  startWave();
+  var btn = document.getElementById('startBtn');
+  btn.textContent = 'カメラ起動中...';
+  btn.style.pointerEvents = 'none';
+  startCamera().then(function() {
+    startScreenEl.style.display = 'none';
+    gameUIEl.style.display = '';
+    resetGame();
+    gameStarted = true;
+    startWave();
+  }).catch(function() {
+    btn.textContent = 'カメラを許可してください';
+    btn.style.pointerEvents = '';
+    setTimeout(function() { btn.textContent = '任務開始'; }, 2000);
+  });
 });
 
 // Scroll popup controls
@@ -1581,6 +1590,7 @@ document.getElementById('missionClose').addEventListener('click', function() { m
 document.getElementById('tipsClose').addEventListener('click', function() { tipsPopupEl.classList.remove('open'); });
 
 retryBtnEl.addEventListener('click', function() {
+  rankingOverlayEl.classList.remove('show');
   missionFailEl.classList.remove('show', 'visible');
   missionFailEl.style.display = 'none';
   resetGame();
@@ -1861,13 +1871,28 @@ mpHands.onResults(function(results) {
   }
 });
 
-var mpCam = new Camera(videoEl, {
-  onFrame: async function() { await mpHands.send({ image: videoEl }); },
-  width: 1280, height: 720,
-});
-mpCam.start()
-  .then(function() { statusEl.textContent = '手のひらをカメラに向けてください'; })
-  .catch(function(err) { statusEl.textContent = 'Camera error: ' + err.message; });
+var mpCam = null;
+var cameraStarted = false;
+
+function startCamera() {
+  if (cameraStarted) return Promise.resolve();
+  return new Promise(function(resolve, reject) {
+    mpCam = new Camera(videoEl, {
+      onFrame: async function() { await mpHands.send({ image: videoEl }); },
+      width: 1280, height: 720,
+    });
+    mpCam.start()
+      .then(function() {
+        cameraStarted = true;
+        statusEl.textContent = '手のひらをカメラに向けてください';
+        resolve();
+      })
+      .catch(function(err) {
+        statusEl.textContent = 'カメラエラー: ' + err.message;
+        reject(err);
+      });
+  });
+}
 
 // ── ANIMATION LOOP ──────────────────────────────────────────────────
 
