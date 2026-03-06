@@ -161,39 +161,79 @@
     }
     #rankCloseBtn:hover { background: rgba(255,80,30,0.9); }
 
-    /* Story-style start screen */
-    #startScreen .mission-scroll {
-      max-width: 480px; padding: 20px 28px; margin-bottom: 28px;
-      background: rgba(30,20,10,0.85); border: 1px solid rgba(180,120,50,0.4);
-      border-radius: 12px; text-align: left;
+    /* Scroll buttons row */
+    #startScreen .scroll-row {
+      display: flex; gap: 24px; margin-bottom: 28px; align-items: flex-start;
     }
-    #startScreen .mission-header {
-      font: 900 16px/1 'Segoe UI', system-ui, sans-serif;
+    #startScreen .scroll-btn {
+      display: flex; flex-direction: column; align-items: center; cursor: pointer;
+      padding: 16px 20px; border-radius: 14px;
+      background: rgba(30,20,10,0.7); border: 1px solid rgba(180,120,50,0.3);
+      transition: all 0.3s ease; min-width: 120px;
+    }
+    #startScreen .scroll-btn:hover {
+      background: rgba(60,40,15,0.85); border-color: rgba(220,160,60,0.6);
+      transform: translateY(-3px); box-shadow: 0 6px 20px rgba(180,120,30,0.3);
+    }
+    #startScreen .scroll-icon {
+      font-size: 48px; line-height: 1; margin-bottom: 8px;
+      filter: drop-shadow(0 0 8px rgba(200,150,50,0.5));
+    }
+    #startScreen .scroll-label {
+      font: 700 14px/1.2 'Segoe UI', system-ui, sans-serif;
+      color: rgba(220,190,140,0.9); text-shadow: 0 0 6px rgba(200,140,40,0.4);
+    }
+    #startScreen .scroll-sub {
+      font: 400 11px/1.2 'Segoe UI', system-ui, sans-serif;
+      color: rgba(180,160,120,0.6); margin-top: 4px;
+    }
+    /* Scroll popup overlay */
+    .scroll-popup {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 110; background: rgba(0,0,0,0.85);
+      flex-direction: column; align-items: center; justify-content: center;
+    }
+    .scroll-popup.open { display: flex; }
+    .scroll-popup .scroll-paper {
+      max-width: 500px; width: 90%; max-height: 75vh; overflow-y: auto;
+      padding: 28px 32px; position: relative;
+      background: linear-gradient(170deg, rgba(60,45,20,0.95), rgba(35,25,10,0.98));
+      border: 2px solid rgba(180,130,50,0.5); border-radius: 4px;
+      box-shadow: 0 0 40px rgba(120,80,20,0.3), inset 0 0 60px rgba(0,0,0,0.3);
+    }
+    .scroll-popup .scroll-paper::before,
+    .scroll-popup .scroll-paper::after {
+      content: ''; position: absolute; left: 8px; right: 8px; height: 18px;
+      background: linear-gradient(90deg, rgba(140,100,40,0.6), rgba(180,130,50,0.8), rgba(140,100,40,0.6));
+      border-radius: 50%; z-index: 1;
+    }
+    .scroll-popup .scroll-paper::before { top: -8px; }
+    .scroll-popup .scroll-paper::after { bottom: -8px; }
+    .scroll-popup .scroll-title {
+      font: 900 18px/1 'Segoe UI', system-ui, sans-serif;
       color: #ff6633; text-shadow: 0 0 8px rgba(255,80,20,0.5);
-      letter-spacing: 3px; margin-bottom: 12px;
-      border-bottom: 1px solid rgba(180,120,50,0.3); padding-bottom: 8px;
+      letter-spacing: 3px; margin-bottom: 16px; text-align: center;
+      border-bottom: 1px solid rgba(180,120,50,0.3); padding-bottom: 10px;
     }
-    #startScreen .mission-body {
+    .scroll-popup .scroll-content {
       font: 400 14px/1.9 'Segoe UI', system-ui, sans-serif;
-      color: rgba(220,200,170,0.9);
+      color: rgba(220,200,170,0.9); text-align: left;
     }
-    #startScreen .mission-body strong { color: #ffaa44; }
-    #startScreen .mission-body .warn { color: #ff5544; font-weight: 700; }
-    #startScreen .tips {
-      max-width: 480px; padding: 16px 24px; margin-top: 16px;
-      background: rgba(10,20,40,0.7); border: 1px solid rgba(80,140,255,0.3);
-      border-radius: 10px; text-align: left;
+    .scroll-popup .scroll-content strong { color: #ffaa44; }
+    .scroll-popup .scroll-content .warn { color: #ff5544; font-weight: 700; }
+    .scroll-popup .scroll-close {
+      margin-top: 20px; padding: 10px 32px;
+      font: 700 16px/1 'Segoe UI', system-ui, sans-serif;
+      color: rgba(220,190,140,0.9); background: rgba(80,50,15,0.7);
+      border: 1px solid rgba(180,130,50,0.5); border-radius: 10px; cursor: pointer;
     }
-    #startScreen .tips-header {
-      font: 800 14px/1 'Segoe UI', system-ui, sans-serif;
-      color: #66aaff; letter-spacing: 2px; margin-bottom: 8px;
-    }
-    #startScreen .tips-body {
-      font: 400 13px/1.8 'Segoe UI', system-ui, sans-serif;
-      color: rgba(180,200,230,0.8);
+    .scroll-popup .scroll-close:hover { background: rgba(120,70,20,0.9); }
+    /* Bottom row */
+    #startScreen .bottom-row {
+      display: flex; gap: 16px; margin-top: 16px;
     }
     #startScreen .ranking-btn {
-      margin-top: 12px; padding: 8px 24px;
+      padding: 8px 24px;
       font: 600 16px/1 'Segoe UI', system-ui, sans-serif;
       color: rgba(255,200,100,0.9); background: rgba(80,50,10,0.6);
       border: 1px solid rgba(200,140,40,0.5); border-radius: 10px; cursor: pointer;
@@ -209,21 +249,50 @@
 <div id="startScreen">
   <div class="title">忍術バトル</div>
   <div class="subtitle">- 木ノ葉防衛任務 -</div>
-  <div class="mission-scroll">
-    <div class="mission-header">■ 任務指令書 ─ Sランク</div>
-    <div class="mission-body">
-      木ノ葉隠れの里に<strong>敵忍者の侵攻</strong>が確認された。<br>
-      お前の忍術で里を守り抜け。<br><br>
-      <strong>赤/オレンジ/紫の光</strong> → 敵忍者（下忍・中忍・上忍）<br>
-      <strong style="color:#44ff88">緑の光</strong> → <strong style="color:#44ff88">味方忍者</strong>（同盟国の援軍）<br><br>
-      <span class="warn">※ 味方を攻撃すると即・任務失敗！</span><br>
-      敵だけを正確に排除し、里を守れ。
+  <div class="scroll-row">
+    <div class="scroll-btn" id="missionScrollBtn">
+      <div class="scroll-icon">📜</div>
+      <div class="scroll-label">任務の巻物</div>
+      <div class="scroll-sub">指令内容を確認</div>
+    </div>
+    <div class="scroll-btn" id="tipsScrollBtn">
+      <div class="scroll-icon">📖</div>
+      <div class="scroll-label">指導書の巻物</div>
+      <div class="scroll-sub">カカシ先生の教え</div>
     </div>
   </div>
   <div class="start-btn" id="startBtn">任務開始</div>
-  <div class="tips">
-    <div class="tips-header">■ カカシ先生の忍術指導書</div>
-    <div class="tips-body">
+  <div class="bottom-row">
+    <div class="ranking-btn" id="showRankingBtn">ランキング</div>
+  </div>
+</div>
+
+<!-- 任務の巻物ポップアップ -->
+<div class="scroll-popup" id="missionPopup">
+  <div class="scroll-paper">
+    <div class="scroll-title">任務指令書 ─ Sランク</div>
+    <div class="scroll-content">
+      火影からの緊急指令──<br><br>
+      木ノ葉隠れの里の外縁部にて、<strong>正体不明の敵忍者集団</strong>の侵攻が確認された。<br>
+      敵は複数のウェーブに分かれて攻撃を仕掛けてくる模様。<br><br>
+      <strong>赤の光（下忍）</strong>── 素早いが脆い。一撃で倒せる。<br>
+      <strong style="color:#ffaa22">橙の光（中忍）</strong>── 体力がある。油断するな。<br>
+      <strong style="color:#cc44ff">紫の光（上忍）</strong>── 極めて強靭。強力な術で仕留めろ。<br><br>
+      なお、同盟国・砂隠れの里から<strong style="color:#44ff88">援軍（緑の光）</strong>が到着している。<br>
+      彼らは味方だ。戦場に紛れて行動している。<br><br>
+      <span class="warn">⚠ 味方忍者を攻撃した場合、同盟違反により即・任務失敗とする。</span><br><br>
+      敵だけを正確に排除し、木ノ葉の里を守り抜け。<br><br>
+      <em style="color:rgba(180,160,120,0.7)">── 五代目火影・綱手</em>
+    </div>
+  </div>
+  <button class="scroll-close" id="missionClose">巻物を閉じる</button>
+</div>
+
+<!-- 指導書の巻物ポップアップ -->
+<div class="scroll-popup" id="tipsPopup">
+  <div class="scroll-paper">
+    <div class="scroll-title">カカシ先生の忍術指導書</div>
+    <div class="scroll-content">
       <em style="color:rgba(200,210,230,0.6)">「よく聞け。実戦で慌てないように、術の基本を叩き込んでおく。」</em><br><br>
       <strong style="color:#66bbff">【螺旋丸 ─ ナルトの右手】</strong><br>
       右手を開いてチャクラを練れ。構え続けるほどチャクラが凝縮される。<br>
@@ -236,12 +305,17 @@
       <strong style="color:#ffaa44">【大激突 ─ 禁じ手】</strong><br>
       両手を近づけると螺旋丸と千鳥がぶつかり合い、全てを吹き飛ばす。<br>
       <span class="warn">ただし味方も巻き込む。使い所を間違えるな。</span><br><br>
-      <em style="color:rgba(200,210,230,0.6)">「上忍クラスは一撃じゃ倒せない。螺旋手裏剣の爆風で<br>
-      広範囲を巻き込め。そして忘れるな ── <span style="color:#44ff88">緑の光は味方</span>だ。<br>
-      仲間を傷つける忍者に、里を守る資格はない。」</em>
+      <strong style="color:#44dd88">【実戦の心得】</strong><br>
+      ・下忍は素早い。螺旋丸の近距離攻撃で素早く処理しろ。<br>
+      ・中忍は複数回叩け。千鳥のチャージで一気に削れ。<br>
+      ・上忍は一撃じゃ倒せない。螺旋手裏剣の爆風が最も効果的だ。<br>
+      ・<span style="color:#44ff88">緑の光を見たら手を引け</span>。攻撃範囲に味方がいないか常に確認しろ。<br>
+      ・大激突は全画面攻撃だが、味方がいれば巻き込む。状況を見極めろ。<br><br>
+      <em style="color:rgba(200,210,230,0.6)">「仲間を傷つける忍者に、里を守る資格はない。<br>
+      ──いいな、忘れるなよ。」</em>
     </div>
   </div>
-  <div class="ranking-btn" id="showRankingBtn">ランキング</div>
+  <button class="scroll-close" id="tipsClose">巻物を閉じる</button>
 </div>
 <div id="missionFail">
   <div class="fail-text">任務失敗</div>
@@ -1497,6 +1571,14 @@ document.getElementById('startBtn').addEventListener('click', function() {
   gameStarted = true;
   startWave();
 });
+
+// Scroll popup controls
+var missionPopupEl = document.getElementById('missionPopup');
+var tipsPopupEl = document.getElementById('tipsPopup');
+document.getElementById('missionScrollBtn').addEventListener('click', function() { missionPopupEl.classList.add('open'); });
+document.getElementById('tipsScrollBtn').addEventListener('click', function() { tipsPopupEl.classList.add('open'); });
+document.getElementById('missionClose').addEventListener('click', function() { missionPopupEl.classList.remove('open'); });
+document.getElementById('tipsClose').addEventListener('click', function() { tipsPopupEl.classList.remove('open'); });
 
 retryBtnEl.addEventListener('click', function() {
   missionFailEl.classList.remove('show', 'visible');
