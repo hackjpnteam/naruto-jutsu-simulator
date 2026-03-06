@@ -1717,22 +1717,32 @@ var lastSnapDataUrl = '';
 function takeScreenshot(label) {
   if (!videoEl.videoWidth || !videoEl.videoHeight) return '';
   try {
+    // Force a fresh render so the canvas has current effects
+    renderer.render(scene, camera);
+
     var snapCanvas = document.createElement('canvas');
     var snapW = 480;
-    var scale = snapW / videoEl.videoWidth;
+    var scale = snapW / W; // Use screen width for proper aspect ratio
     snapCanvas.width = snapW;
-    snapCanvas.height = Math.round(videoEl.videoHeight * scale);
+    snapCanvas.height = Math.round(H * scale);
     var ctx = snapCanvas.getContext('2d');
+
     // 1) Draw mirrored video
     ctx.save();
     ctx.translate(snapCanvas.width, 0);
     ctx.scale(-1, 1);
     ctx.drawImage(videoEl, 0, 0, snapCanvas.width, snapCanvas.height);
     ctx.restore();
-    // 2) Composite Three.js canvas (effects) on top with "screen" blend
-    ctx.globalCompositeOperation = 'screen';
-    ctx.drawImage(canvasEl, 0, 0, snapCanvas.width, snapCanvas.height);
-    ctx.globalCompositeOperation = 'source-over';
+
+    // 2) Composite Three.js effects on top with "lighter" (additive) blend
+    try {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.drawImage(canvasEl, 0, 0, snapCanvas.width, snapCanvas.height);
+      ctx.globalCompositeOperation = 'source-over';
+    } catch(canvasErr) {
+      // Canvas tainted by cross-origin — save video only
+    }
+
     var dataUrl = snapCanvas.toDataURL('image/jpeg', 0.6);
     lastSnapDataUrl = dataUrl;
     var snaps = loadSnaps();
@@ -1747,7 +1757,23 @@ function takeScreenshot(label) {
     saveSnaps(snaps);
     return dataUrl;
   } catch(e) {
-    return '';
+    // If screenshot completely fails, still try to save video-only
+    try {
+      var fallbackCanvas = document.createElement('canvas');
+      fallbackCanvas.width = 320;
+      fallbackCanvas.height = 240;
+      var fCtx = fallbackCanvas.getContext('2d');
+      fCtx.save(); fCtx.translate(320, 0); fCtx.scale(-1, 1);
+      fCtx.drawImage(videoEl, 0, 0, 320, 240);
+      fCtx.restore();
+      var fUrl = fallbackCanvas.toDataURL('image/jpeg', 0.5);
+      lastSnapDataUrl = fUrl;
+      var snaps2 = loadSnaps();
+      snaps2.push({ img: fUrl, time: new Date().toLocaleString('ja-JP'), score: score, wave: wave, label: (label||'') + ' (効果なし)' });
+      if (snaps2.length > 30) snaps2 = snaps2.slice(-30);
+      saveSnaps(snaps2);
+      return fUrl;
+    } catch(e2) { return ''; }
   }
 }
 
