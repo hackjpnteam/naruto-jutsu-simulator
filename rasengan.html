@@ -1718,14 +1718,21 @@ function takeScreenshot(label) {
   if (!videoEl.videoWidth || !videoEl.videoHeight) return '';
   try {
     var snapCanvas = document.createElement('canvas');
-    // Resize to 320px wide to keep file size small
-    var scale = 320 / videoEl.videoWidth;
-    snapCanvas.width = 320;
+    var snapW = 480;
+    var scale = snapW / videoEl.videoWidth;
+    snapCanvas.width = snapW;
     snapCanvas.height = Math.round(videoEl.videoHeight * scale);
     var ctx = snapCanvas.getContext('2d');
+    // 1) Draw mirrored video
+    ctx.save();
     ctx.translate(snapCanvas.width, 0);
     ctx.scale(-1, 1);
     ctx.drawImage(videoEl, 0, 0, snapCanvas.width, snapCanvas.height);
+    ctx.restore();
+    // 2) Composite Three.js canvas (effects) on top with "screen" blend
+    ctx.globalCompositeOperation = 'screen';
+    ctx.drawImage(canvasEl, 0, 0, snapCanvas.width, snapCanvas.height);
+    ctx.globalCompositeOperation = 'source-over';
     var dataUrl = snapCanvas.toDataURL('image/jpeg', 0.6);
     lastSnapDataUrl = dataUrl;
     var snaps = loadSnaps();
