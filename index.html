@@ -1700,32 +1700,48 @@ function resetGame() {
 // ── Screenshot / Admin system ──
 var SNAP_KEY = 'ninjaSnaps';
 function loadSnaps() { try { return JSON.parse(localStorage.getItem(SNAP_KEY)) || []; } catch(e) { return []; } }
-function saveSnaps(snaps) { localStorage.setItem(SNAP_KEY, JSON.stringify(snaps)); }
+function saveSnaps(snaps) {
+  try {
+    localStorage.setItem(SNAP_KEY, JSON.stringify(snaps));
+  } catch(e) {
+    // localStorage full — remove oldest entries and retry
+    while (snaps.length > 1) {
+      snaps.shift();
+      try { localStorage.setItem(SNAP_KEY, JSON.stringify(snaps)); return; } catch(e2) {}
+    }
+  }
+}
 
-var lastSnapDataUrl = ''; // Store latest snap for sharing
+var lastSnapDataUrl = '';
 
 function takeScreenshot(label) {
-  if (!videoEl.videoWidth) return '';
-  var snapCanvas = document.createElement('canvas');
-  snapCanvas.width = videoEl.videoWidth;
-  snapCanvas.height = videoEl.videoHeight;
-  var ctx = snapCanvas.getContext('2d');
-  ctx.translate(snapCanvas.width, 0);
-  ctx.scale(-1, 1);
-  ctx.drawImage(videoEl, 0, 0, snapCanvas.width, snapCanvas.height);
-  var dataUrl = snapCanvas.toDataURL('image/jpeg', 0.7);
-  lastSnapDataUrl = dataUrl;
-  var snaps = loadSnaps();
-  snaps.push({
-    img: dataUrl,
-    time: new Date().toLocaleString('ja-JP'),
-    score: score,
-    wave: wave,
-    label: label || '',
-  });
-  if (snaps.length > 50) snaps = snaps.slice(-50);
-  saveSnaps(snaps);
-  return dataUrl;
+  if (!videoEl.videoWidth || !videoEl.videoHeight) return '';
+  try {
+    var snapCanvas = document.createElement('canvas');
+    // Resize to 320px wide to keep file size small
+    var scale = 320 / videoEl.videoWidth;
+    snapCanvas.width = 320;
+    snapCanvas.height = Math.round(videoEl.videoHeight * scale);
+    var ctx = snapCanvas.getContext('2d');
+    ctx.translate(snapCanvas.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(videoEl, 0, 0, snapCanvas.width, snapCanvas.height);
+    var dataUrl = snapCanvas.toDataURL('image/jpeg', 0.6);
+    lastSnapDataUrl = dataUrl;
+    var snaps = loadSnaps();
+    snaps.push({
+      img: dataUrl,
+      time: new Date().toLocaleString('ja-JP'),
+      score: score,
+      wave: wave,
+      label: label || '',
+    });
+    if (snaps.length > 30) snaps = snaps.slice(-30);
+    saveSnaps(snaps);
+    return dataUrl;
+  } catch(e) {
+    return '';
+  }
 }
 
 // Track if rasengan snap was already taken this activation
