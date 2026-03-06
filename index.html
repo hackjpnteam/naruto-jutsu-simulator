@@ -105,6 +105,100 @@
       opacity: 0; transition: opacity 0.8s ease 0.3s;
     }
     #missionFail.visible .fail-reason { opacity: 1; }
+
+    /* Ranking overlay */
+    #rankingOverlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 250; background: rgba(0,0,0,0.9); pointer-events: auto;
+    }
+    #rankingOverlay.show { display: flex; }
+    #rankingOverlay .rank-title {
+      font: 900 40px/1 'Segoe UI', system-ui, sans-serif;
+      color: #ffaa33; text-shadow: 0 0 20px rgba(255,150,30,0.7);
+      margin-bottom: 24px; letter-spacing: 4px;
+    }
+    #rankingOverlay .rank-table {
+      width: 340px; margin-bottom: 24px;
+    }
+    #rankingOverlay .rank-row {
+      display: flex; align-items: center; padding: 8px 12px; margin: 4px 0;
+      border-radius: 8px; font: 600 16px/1.4 'Segoe UI', system-ui, sans-serif;
+    }
+    #rankingOverlay .rank-row.gold { background: rgba(255,200,50,0.15); border: 1px solid rgba(255,200,50,0.4); }
+    #rankingOverlay .rank-row.silver { background: rgba(200,200,220,0.1); border: 1px solid rgba(200,200,220,0.3); }
+    #rankingOverlay .rank-row.bronze { background: rgba(200,130,60,0.1); border: 1px solid rgba(200,130,60,0.3); }
+    #rankingOverlay .rank-row.normal { background: rgba(100,100,120,0.1); border: 1px solid rgba(100,100,120,0.2); }
+    #rankingOverlay .rank-num { width: 36px; color: #ffcc44; font-weight: 900; font-size: 20px; }
+    #rankingOverlay .rank-name { flex: 1; color: rgba(255,240,220,0.9); }
+    #rankingOverlay .rank-score { color: rgba(255,180,100,0.9); font-weight: 700; }
+    #rankingOverlay .rank-wave { color: rgba(180,180,200,0.6); font-size: 13px; margin-left: 8px; }
+    /* Name input */
+    #nameInputBox {
+      display: none; flex-direction: column; align-items: center; margin-bottom: 20px;
+    }
+    #nameInputBox.show { display: flex; }
+    #nameInputBox .input-label {
+      font: 600 18px/1.4 'Segoe UI', system-ui, sans-serif;
+      color: #ffcc44; text-shadow: 0 0 10px rgba(255,180,40,0.6); margin-bottom: 10px;
+    }
+    #nameInput {
+      width: 220px; padding: 10px 16px; font: 700 20px/1 'Segoe UI', system-ui, sans-serif;
+      background: rgba(40,30,20,0.8); border: 2px solid rgba(255,150,50,0.6);
+      border-radius: 10px; color: #fff; text-align: center; outline: none;
+    }
+    #nameInput:focus { border-color: rgba(255,180,80,0.9); box-shadow: 0 0 15px rgba(255,150,50,0.4); }
+    #nameSubmit {
+      margin-top: 10px; padding: 8px 30px; font: 700 18px/1 'Segoe UI', system-ui, sans-serif;
+      color: #fff; background: rgba(255,150,30,0.7); border: 2px solid rgba(255,180,60,0.7);
+      border-radius: 10px; cursor: pointer;
+    }
+    #nameSubmit:hover { background: rgba(255,170,50,0.9); }
+    #rankCloseBtn {
+      padding: 12px 36px; font: 700 22px/1 'Segoe UI', system-ui, sans-serif;
+      color: #fff; background: rgba(255,60,20,0.6); border: 2px solid rgba(255,80,60,0.7);
+      border-radius: 14px; cursor: pointer; margin-top: 10px;
+    }
+    #rankCloseBtn:hover { background: rgba(255,80,30,0.9); }
+
+    /* Story-style start screen */
+    #startScreen .mission-scroll {
+      max-width: 480px; padding: 20px 28px; margin-bottom: 28px;
+      background: rgba(30,20,10,0.85); border: 1px solid rgba(180,120,50,0.4);
+      border-radius: 12px; text-align: left;
+    }
+    #startScreen .mission-header {
+      font: 900 16px/1 'Segoe UI', system-ui, sans-serif;
+      color: #ff6633; text-shadow: 0 0 8px rgba(255,80,20,0.5);
+      letter-spacing: 3px; margin-bottom: 12px;
+      border-bottom: 1px solid rgba(180,120,50,0.3); padding-bottom: 8px;
+    }
+    #startScreen .mission-body {
+      font: 400 14px/1.9 'Segoe UI', system-ui, sans-serif;
+      color: rgba(220,200,170,0.9);
+    }
+    #startScreen .mission-body strong { color: #ffaa44; }
+    #startScreen .mission-body .warn { color: #ff5544; font-weight: 700; }
+    #startScreen .tips {
+      max-width: 480px; padding: 16px 24px; margin-top: 16px;
+      background: rgba(10,20,40,0.7); border: 1px solid rgba(80,140,255,0.3);
+      border-radius: 10px; text-align: left;
+    }
+    #startScreen .tips-header {
+      font: 800 14px/1 'Segoe UI', system-ui, sans-serif;
+      color: #66aaff; letter-spacing: 2px; margin-bottom: 8px;
+    }
+    #startScreen .tips-body {
+      font: 400 13px/1.8 'Segoe UI', system-ui, sans-serif;
+      color: rgba(180,200,230,0.8);
+    }
+    #startScreen .ranking-btn {
+      margin-top: 12px; padding: 8px 24px;
+      font: 600 16px/1 'Segoe UI', system-ui, sans-serif;
+      color: rgba(255,200,100,0.9); background: rgba(80,50,10,0.6);
+      border: 1px solid rgba(200,140,40,0.5); border-radius: 10px; cursor: pointer;
+    }
+    #startScreen .ranking-btn:hover { background: rgba(120,70,20,0.8); }
   </style>
 </head>
 <body>
@@ -114,19 +208,48 @@
 <div id="overlay"></div>
 <div id="startScreen">
   <div class="title">忍術バトル</div>
-  <div class="subtitle">Naruto Jutsu Simulator</div>
-  <div class="start-btn" id="startBtn">ゲームスタート</div>
-  <div class="instructions">
-    右手 → 螺旋丸 / 風遁・螺旋手裏剣<br>
-    左手 → 千鳥 / 千鳥鋭槍<br>
-    ⚠ 味方（緑）を攻撃すると任務失敗！
+  <div class="subtitle">- 木ノ葉防衛任務 -</div>
+  <div class="mission-scroll">
+    <div class="mission-header">■ 任務指令書 ─ Sランク</div>
+    <div class="mission-body">
+      木ノ葉隠れの里に<strong>敵忍者の侵攻</strong>が確認された。<br>
+      お前の忍術で里を守り抜け。<br><br>
+      <strong>赤/オレンジ/紫の光</strong> → 敵忍者（下忍・中忍・上忍）<br>
+      <strong style="color:#44ff88">緑の光</strong> → <strong style="color:#44ff88">味方忍者</strong>（同盟国の援軍）<br><br>
+      <span class="warn">※ 味方を攻撃すると即・任務失敗！</span><br>
+      敵だけを正確に排除し、里を守れ。
+    </div>
   </div>
+  <div class="start-btn" id="startBtn">任務開始</div>
+  <div class="tips">
+    <div class="tips-header">■ 戦闘のコツ</div>
+    <div class="tips-body">
+      ・右手を開く → <strong>螺旋丸</strong>発動。長く構えるほど強化<br>
+      ・右手3秒以上 → <strong>風遁・螺旋手裏剣</strong>に進化。握ると投擲<br>
+      ・左手を開く → <strong>千鳥</strong>発動。チャージで雷が激化<br>
+      ・左手3秒以上 → <strong>千鳥鋭槍</strong>。握ると長距離ビーム発射<br>
+      ・両手を近づける → <strong>大激突</strong>（全画面攻撃・味方注意!）<br>
+      ・味方（緑）が近くにいるときは攻撃範囲に注意！<br>
+      ・上忍は体力が多い。螺旋手裏剣の爆風が効果的
+    </div>
+  </div>
+  <div class="ranking-btn" id="showRankingBtn">ランキング</div>
 </div>
 <div id="missionFail">
   <div class="fail-text">任務失敗</div>
   <div class="fail-reason">味方忍者を攻撃した！</div>
   <div class="fail-score"></div>
   <div class="retry-btn" id="retryBtn">もう一度</div>
+</div>
+<div id="rankingOverlay">
+  <div class="rank-title">忍者ランキング</div>
+  <div id="nameInputBox">
+    <div class="input-label">名前を入力せよ！</div>
+    <input type="text" id="nameInput" maxlength="12" placeholder="忍者名">
+    <button id="nameSubmit">登録</button>
+  </div>
+  <div class="rank-table" id="rankTable"></div>
+  <button id="rankCloseBtn">閉じる</button>
 </div>
 <div id="gameUI" style="display:none;"><span id="scoreDisplay">SCORE: 0</span><span id="waveDisplay">WAVE 1</span></div>
 <div id="ui"><div id="status">Initializing...</div></div>
@@ -1257,19 +1380,99 @@ var startScreenEl = document.getElementById('startScreen');
 var missionFailEl = document.getElementById('missionFail');
 var gameUIEl = document.getElementById('gameUI');
 var retryBtnEl = document.getElementById('retryBtn');
+var rankingOverlayEl = document.getElementById('rankingOverlay');
+var rankTableEl = document.getElementById('rankTable');
+var nameInputBoxEl = document.getElementById('nameInputBox');
+var nameInputEl = document.getElementById('nameInput');
+var nameSubmitEl = document.getElementById('nameSubmit');
+var rankCloseBtnEl = document.getElementById('rankCloseBtn');
+var showRankingBtnEl = document.getElementById('showRankingBtn');
 
-document.getElementById('startBtn').addEventListener('click', function() {
-  startScreenEl.style.display = 'none';
-  gameUIEl.style.display = '';
-  gameStarted = true;
-  gameFailed = false;
-  startWave();
+// ── RANKING SYSTEM (localStorage) ──
+var RANK_KEY = 'ninjaRanking';
+function loadRanking() {
+  try { return JSON.parse(localStorage.getItem(RANK_KEY)) || []; } catch(e) { return []; }
+}
+function saveRanking(ranks) {
+  localStorage.setItem(RANK_KEY, JSON.stringify(ranks));
+}
+function isTopFive(s) {
+  var ranks = loadRanking();
+  return ranks.length < 5 || s > ranks[ranks.length - 1].score;
+}
+function addRanking(name, s, w) {
+  var ranks = loadRanking();
+  ranks.push({ name: name, score: s, wave: w });
+  ranks.sort(function(a, b) { return b.score - a.score; });
+  if (ranks.length > 5) ranks = ranks.slice(0, 5);
+  saveRanking(ranks);
+  return ranks;
+}
+function renderRanking(ranks, highlightScore) {
+  var rowClasses = ['gold', 'silver', 'bronze', 'normal', 'normal'];
+  var medals = ['🥇', '🥈', '🥉', '4', '5'];
+  rankTableEl.innerHTML = '';
+  if (ranks.length === 0) {
+    rankTableEl.innerHTML = '<div style="color:rgba(200,200,220,0.5);text-align:center;padding:20px;">記録なし</div>';
+    return;
+  }
+  ranks.forEach(function(r, i) {
+    var row = document.createElement('div');
+    row.className = 'rank-row ' + (rowClasses[i] || 'normal');
+    if (highlightScore !== undefined && r.score === highlightScore) {
+      row.style.boxShadow = '0 0 15px rgba(255,200,50,0.5)';
+    }
+    row.innerHTML =
+      '<span class="rank-num">' + medals[i] + '</span>' +
+      '<span class="rank-name">' + escapeHtml(r.name) + '</span>' +
+      '<span class="rank-score">' + r.score + '</span>' +
+      '<span class="rank-wave">W' + r.wave + '</span>';
+    rankTableEl.appendChild(row);
+  });
+}
+function escapeHtml(str) {
+  var d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+var pendingRankScore = 0;
+var pendingRankWave = 0;
+
+function showRankingScreen(allowInput, newScore, newWave) {
+  rankingOverlayEl.classList.add('show');
+  var ranks = loadRanking();
+  if (allowInput && isTopFive(newScore)) {
+    nameInputBoxEl.classList.add('show');
+    nameInputEl.value = '';
+    nameInputEl.focus();
+    pendingRankScore = newScore;
+    pendingRankWave = newWave;
+  } else {
+    nameInputBoxEl.classList.remove('show');
+  }
+  renderRanking(ranks);
+}
+
+nameSubmitEl.addEventListener('click', function() {
+  var name = nameInputEl.value.trim() || '名無しの忍';
+  var ranks = addRanking(name, pendingRankScore, pendingRankWave);
+  nameInputBoxEl.classList.remove('show');
+  renderRanking(ranks, pendingRankScore);
+});
+nameInputEl.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') nameSubmitEl.click();
 });
 
-retryBtnEl.addEventListener('click', function() {
-  // Reset game
-  missionFailEl.classList.remove('show', 'visible');
-  missionFailEl.style.display = 'none';
+rankCloseBtnEl.addEventListener('click', function() {
+  rankingOverlayEl.classList.remove('show');
+});
+
+showRankingBtnEl.addEventListener('click', function() {
+  showRankingScreen(false);
+});
+
+function resetGame() {
   enemies.forEach(function(e) { if (e.alive) { e.alive = false; e.group.visible = false; scene.remove(e.group); } });
   enemies = [];
   spawnQueue = [];
@@ -1277,6 +1480,20 @@ retryBtnEl.addEventListener('click', function() {
   gameFailed = false;
   scoreEl.textContent = 'SCORE: 0';
   waveEl.textContent = 'WAVE 1';
+}
+
+document.getElementById('startBtn').addEventListener('click', function() {
+  startScreenEl.style.display = 'none';
+  gameUIEl.style.display = '';
+  resetGame();
+  gameStarted = true;
+  startWave();
+});
+
+retryBtnEl.addEventListener('click', function() {
+  missionFailEl.classList.remove('show', 'visible');
+  missionFailEl.style.display = 'none';
+  resetGame();
   gameUIEl.style.display = '';
   gameStarted = true;
   startWave();
@@ -1377,15 +1594,21 @@ function damageEnemy(enemy, dmg) {
 function triggerMissionFail() {
   gameFailed = true;
   gameStarted = false;
+  var finalScore = score;
+  var finalWave = wave;
   // Show fail screen with animation
   missionFailEl.classList.add('show');
   missionFailEl.style.background = 'rgba(0,0,0,0)';
-  missionFailEl.querySelector('.fail-score').textContent = 'SCORE: ' + score + ' | WAVE ' + wave;
+  missionFailEl.querySelector('.fail-score').textContent = 'SCORE: ' + finalScore + ' | WAVE ' + finalWave;
   // Fade in background
   setTimeout(function() {
     missionFailEl.style.background = 'rgba(80,0,0,0.85)';
     missionFailEl.classList.add('visible');
   }, 50);
+  // Show ranking after a delay
+  setTimeout(function() {
+    showRankingScreen(true, finalScore, finalWave);
+  }, 1500);
   // Hide game UI
   gameUIEl.style.display = 'none';
   statusEl.textContent = '';
