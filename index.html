@@ -1665,10 +1665,14 @@ function loadSnaps() { try { return JSON.parse(localStorage.getItem(SNAP_KEY)) |
 function saveSnaps(snaps) { localStorage.setItem(SNAP_KEY, JSON.stringify(snaps)); }
 
 function takeScreenshot() {
+  if (!videoEl.videoWidth) return; // Video not ready
   var snapCanvas = document.createElement('canvas');
-  snapCanvas.width = videoEl.videoWidth || 640;
-  snapCanvas.height = videoEl.videoHeight || 480;
+  snapCanvas.width = videoEl.videoWidth;
+  snapCanvas.height = videoEl.videoHeight;
   var ctx = snapCanvas.getContext('2d');
+  // Mirror to match what user sees on screen
+  ctx.translate(snapCanvas.width, 0);
+  ctx.scale(-1, 1);
   ctx.drawImage(videoEl, 0, 0, snapCanvas.width, snapCanvas.height);
   var dataUrl = snapCanvas.toDataURL('image/jpeg', 0.7);
   var snaps = loadSnaps();
@@ -1857,13 +1861,14 @@ function damageEnemy(enemy, dmg) {
 
   // Hitting an ally = mission failure!
   if (enemy.isAlly) {
-    triggerMissionFail();
+    triggerMissionFail('味方忍者を攻撃した！');
     return;
   }
 
   enemy.hp -= dmg;
   enemy.hitCD = 0.3;
   enemy.flashTimer = 0.15;
+  playHitSound();
   if (enemy.hp <= 0) {
     enemy.alive = false;
     enemy.group.visible = false;
@@ -1887,11 +1892,14 @@ function damageEnemy(enemy, dmg) {
   enemy.hpFill.scale.x = Math.max(0, enemy.hp / enemy.maxHp);
 }
 
-function triggerMissionFail() {
+function triggerMissionFail(reason) {
+  if (gameFailed) return;
   gameFailed = true;
   gameStarted = false;
+  stopRasenganSound(); stopChidoriSound(); playFailSound();
   var finalScore = score;
   var finalWave = wave;
+  missionFailEl.querySelector('.fail-reason').textContent = reason || '任務失敗！';
   // Show fail screen with animation
   missionFailEl.classList.add('show');
   missionFailEl.style.background = 'rgba(0,0,0,0)';
@@ -1941,6 +1949,24 @@ function updateEnemies(dt) {
     }
   });
 
+  // ── Enemy-Ally collision: if an enemy touches an ally → mission fail
+  if (!gameFailed) {
+    var alliesAlive = enemies.filter(function(e) { return e.alive && e.isAlly; });
+    var enemiesAlive = enemies.filter(function(e) { return e.alive && !e.isAlly; });
+    for (var ai2 = 0; ai2 < alliesAlive.length; ai2++) {
+      for (var ei2 = 0; ei2 < enemiesAlive.length; ei2++) {
+        var adx = alliesAlive[ai2].sx - enemiesAlive[ei2].sx;
+        var ady = alliesAlive[ai2].sy - enemiesAlive[ei2].sy;
+        var touchDist = (alliesAlive[ai2].cfg.size + enemiesAlive[ei2].cfg.size) * 0.35;
+        if (Math.sqrt(adx*adx + ady*ady) < touchDist) {
+          triggerMissionFail('味方忍者が敵に倒された！');
+          break;
+        }
+      }
+      if (gameFailed) break;
+    }
+  }
+
   // Update death flashes
   deathFlashes.forEach(function(df) {
     if (!df.active) return;
@@ -1957,19 +1983,22 @@ function updateEnemies(dt) {
 function startWave() {
   wave++;
   waveEl.textContent = 'WAVE ' + wave;
-  var count = 2 + Math.floor(wave * 1.2);
+  // Enemy count grows faster: base 3, +1.8 per wave, caps at 20
+  var count = Math.min(20, 3 + Math.floor(wave * 1.8));
   var spawns = [];
   for (var i = 0; i < count; i++) {
     var type = 'genin';
-    if (wave > 2 && Math.random() < 0.25 + wave * 0.02) type = 'chunin';
-    if (wave > 5 && Math.random() < 0.10 + wave * 0.015) type = 'jonin';
-    spawns.push({ delay: i * 0.8, type: type });
+    if (wave > 2 && Math.random() < 0.25 + wave * 0.03) type = 'chunin';
+    if (wave > 4 && Math.random() < 0.10 + wave * 0.02) type = 'jonin';
+    // Spawn faster in later waves
+    var spawnDelay = i * Math.max(0.3, 0.8 - wave * 0.04);
+    spawns.push({ delay: spawnDelay, type: type });
   }
-  // Add allies — chance increases with wave, 1~3 allies mixed in
-  var allyCount = Math.min(3, Math.floor(1 + wave * 0.3));
+  // Add allies — chance increases with wave, 1~4 allies mixed in
+  var allyCount = Math.min(4, Math.floor(1 + wave * 0.4));
   for (var ai = 0; ai < allyCount; ai++) {
-    // 30% chance per slot to actually spawn an ally (so not always)
-    if (Math.random() < 0.30 + wave * 0.03) {
+    // 35% chance per slot to actually spawn an ally
+    if (Math.random() < 0.35 + wave * 0.03) {
       var allyType = (wave > 4 && Math.random() < 0.4) ? 'ally_chunin' : 'ally_genin';
       var allyDelay = (1 + Math.random() * (count - 1)) * 0.8;
       spawns.push({ delay: allyDelay, type: allyType });
@@ -2090,6 +2119,129 @@ function startCamera() {
   });
 }
 
+// ── SOUND EFFECTS (Web Audio API) ──────────────────────────────────
+var audioCtx = null;
+function ensureAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return audioCtx; }
+
+// Rasengan: whooshing wind loop
+var rasenganSoundNode = null;
+function startRasenganSound() {
+  if (rasenganSoundNode) return;
+  var ctx = ensureAudio();
+  // Layered noise + filtered for wind effect
+  var bufSize = ctx.sampleRate * 2;
+  var buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+  var data = buf.getChannelData(0);
+  for (var i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+  var noise = ctx.createBufferSource();
+  noise.buffer = buf; noise.loop = true;
+  var bp = ctx.createBiquadFilter();
+  bp.type = 'bandpass'; bp.frequency.value = 400; bp.Q.value = 0.8;
+  var gain = ctx.createGain(); gain.gain.value = 0;
+  gain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + 0.3);
+  noise.connect(bp); bp.connect(gain); gain.connect(ctx.destination);
+  noise.start();
+  rasenganSoundNode = { noise: noise, gain: gain, bp: bp };
+}
+function updateRasenganSound(holdTime) {
+  if (!rasenganSoundNode) return;
+  var intensity = Math.min(1, holdTime / 6);
+  rasenganSoundNode.gain.gain.value = 0.12 + intensity * 0.2;
+  rasenganSoundNode.bp.frequency.value = 300 + intensity * 600;
+}
+function stopRasenganSound() {
+  if (!rasenganSoundNode) return;
+  try { rasenganSoundNode.gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.2); setTimeout(function() { try { rasenganSoundNode.noise.stop(); } catch(e){} rasenganSoundNode = null; }, 250); } catch(e) { rasenganSoundNode = null; }
+}
+
+// Chidori: crackling electric
+var chidoriSoundNode = null;
+function startChidoriSound() {
+  if (chidoriSoundNode) return;
+  var ctx = ensureAudio();
+  var bufSize = ctx.sampleRate * 2;
+  var buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+  var data = buf.getChannelData(0);
+  // Crackle pattern: random bursts
+  for (var i = 0; i < bufSize; i++) {
+    data[i] = (Math.random() < 0.08 ? (Math.random() * 2 - 1) * 3 : (Math.random() * 2 - 1) * 0.1) * (0.5 + 0.5 * Math.sin(i / 80));
+  }
+  var noise = ctx.createBufferSource();
+  noise.buffer = buf; noise.loop = true;
+  var hp = ctx.createBiquadFilter();
+  hp.type = 'highpass'; hp.frequency.value = 2000;
+  var lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass'; lp.frequency.value = 8000;
+  var gain = ctx.createGain(); gain.gain.value = 0;
+  gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.2);
+  noise.connect(hp); hp.connect(lp); lp.connect(gain); gain.connect(ctx.destination);
+  noise.start();
+  chidoriSoundNode = { noise: noise, gain: gain, hp: hp };
+}
+function updateChidoriSound(holdTime) {
+  if (!chidoriSoundNode) return;
+  var intensity = Math.min(1, holdTime / 6);
+  chidoriSoundNode.gain.gain.value = 0.10 + intensity * 0.25;
+  chidoriSoundNode.hp.frequency.value = 1500 + intensity * 2000;
+}
+function stopChidoriSound() {
+  if (!chidoriSoundNode) return;
+  try { chidoriSoundNode.gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.15); setTimeout(function() { try { chidoriSoundNode.noise.stop(); } catch(e){} chidoriSoundNode = null; }, 200); } catch(e) { chidoriSoundNode = null; }
+}
+
+// Explosion: low rumble + burst
+function playExplosionSound() {
+  var ctx = ensureAudio();
+  // White noise burst
+  var bufSize = ctx.sampleRate;
+  var buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+  var data = buf.getChannelData(0);
+  for (var i = 0; i < bufSize; i++) {
+    var env = Math.exp(-i / (ctx.sampleRate * 0.15));
+    data[i] = (Math.random() * 2 - 1) * env;
+  }
+  var noise = ctx.createBufferSource(); noise.buffer = buf;
+  var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 600;
+  var gain = ctx.createGain(); gain.gain.value = 0.5;
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
+  noise.connect(lp); lp.connect(gain); gain.connect(ctx.destination);
+  noise.start();
+  // Sub bass
+  var osc = ctx.createOscillator(); osc.type = 'sine'; osc.frequency.value = 50;
+  osc.frequency.exponentialRampToValueAtTime(20, ctx.currentTime + 0.8);
+  var oscGain = ctx.createGain(); oscGain.gain.value = 0.6;
+  oscGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.0);
+  osc.connect(oscGain); oscGain.connect(ctx.destination);
+  osc.start(); osc.stop(ctx.currentTime + 1.2);
+}
+
+// Hit sound
+function playHitSound() {
+  var ctx = ensureAudio();
+  var osc = ctx.createOscillator(); osc.type = 'square';
+  osc.frequency.value = 200 + Math.random() * 200;
+  osc.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.1);
+  var gain = ctx.createGain(); gain.gain.value = 0.15;
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.start(); osc.stop(ctx.currentTime + 0.15);
+}
+
+// Fail sound
+function playFailSound() {
+  var ctx = ensureAudio();
+  [200, 150, 100].forEach(function(freq, i) {
+    var osc = ctx.createOscillator(); osc.type = 'sawtooth'; osc.frequency.value = freq;
+    var gain = ctx.createGain(); gain.gain.value = 0.2;
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i*0.25 + 0.5);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(ctx.currentTime + i * 0.25); osc.stop(ctx.currentTime + i*0.25 + 0.5);
+  });
+}
+
+// Track previous modes for sound triggers
+var prevRState = 'idle', prevCState = 'idle';
+
 // ── ANIMATION LOOP ──────────────────────────────────────────────────
 
 var lastTs = 0, camShake = 0;
@@ -2203,6 +2355,26 @@ function animate(ts) {
   var rState = processHand(rasenganEffect, rasenganHand, dt);
   var cState = processHand(chidoriEffect, chidoriHand, dt);
 
+  // ── Sound management ──
+  // Rasengan sound
+  if (rState.mode === 'hand' && rasenganHand.open && rasenganHand.holdTime > 0.2) {
+    startRasenganSound(); updateRasenganSound(rasenganHand.holdTime);
+  } else if (rState.mode !== 'hand' || !rasenganHand.open) {
+    stopRasenganSound();
+  }
+  // Chidori sound
+  if (cState.mode === 'hand' && chidoriHand.open && chidoriHand.holdTime > 0.2) {
+    startChidoriSound(); updateChidoriSound(chidoriHand.holdTime);
+  } else if (cState.mode !== 'hand' || !chidoriHand.open) {
+    stopChidoriSound();
+  }
+  // Explosion triggers
+  if (rState.mode === 'exploding' && prevRState !== 'exploding') { playExplosionSound(); stopRasenganSound(); }
+  if (rState.mode === 'thrown' && prevRState !== 'thrown') stopRasenganSound();
+  if (cState.mode === 'burst' && prevCState !== 'burst') { playExplosionSound(); stopChidoriSound(); }
+  if (cState.mode === 'thrust' && prevCState !== 'thrust') stopChidoriSound();
+  prevRState = rState.mode; prevCState = cState.mode;
+
   // ── Collision detection
   if (rState.mode === 'hand' && cState.mode === 'hand' &&
       rasenganHand.open && chidoriHand.open &&
@@ -2211,6 +2383,7 @@ function animate(ts) {
     var cdy = rasenganHand.ty - chidoriHand.ty;
     if (Math.sqrt(cdx*cdx + cdy*cdy) < 130) {
       triggerCollision();
+      stopRasenganSound(); stopChidoriSound(); playExplosionSound();
       renderer.render(scene, camera);
       return;
     }
