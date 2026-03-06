@@ -239,6 +239,83 @@
       border: 1px solid rgba(200,140,40,0.5); border-radius: 10px; cursor: pointer;
     }
     #startScreen .ranking-btn:hover { background: rgba(120,70,20,0.8); }
+
+    /* Countdown overlay */
+    #countdownOverlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 105; background: rgba(0,0,0,0.6); pointer-events: none;
+    }
+    #countdownOverlay.show { display: flex; }
+    #countdownNum {
+      font: 900 140px/1 'Segoe UI', system-ui, sans-serif;
+      color: #fff; text-shadow: 0 0 40px rgba(255,120,30,0.9), 0 0 80px rgba(255,60,0,0.5);
+      animation: countPop 1s ease-out infinite;
+    }
+    #countdownLabel {
+      font: 600 22px/1 'Segoe UI', system-ui, sans-serif;
+      color: rgba(255,200,150,0.8); margin-top: 16px;
+      text-shadow: 0 0 10px rgba(255,100,40,0.5);
+    }
+    @keyframes countPop {
+      0% { transform: scale(1.3); opacity: 0.5; }
+      30% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+
+    /* Admin panel */
+    #adminPanel {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      display: none; flex-direction: column; z-index: 300;
+      background: rgba(0,0,0,0.95); overflow-y: auto;
+    }
+    #adminPanel.show { display: flex; }
+    #adminPanel .admin-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 24px; background: rgba(30,30,40,0.95);
+      border-bottom: 1px solid rgba(100,100,120,0.3);
+    }
+    #adminPanel .admin-title {
+      font: 800 22px/1 'Segoe UI', system-ui, sans-serif;
+      color: #ffaa33; letter-spacing: 2px;
+    }
+    #adminPanel .admin-close {
+      padding: 8px 20px; font: 700 14px/1 'Segoe UI', system-ui, sans-serif;
+      color: #fff; background: rgba(255,50,30,0.6); border: 1px solid rgba(255,80,60,0.5);
+      border-radius: 8px; cursor: pointer;
+    }
+    #adminPanel .admin-close:hover { background: rgba(255,70,40,0.9); }
+    #adminPanel .admin-actions {
+      padding: 12px 24px; display: flex; gap: 10px;
+    }
+    #adminPanel .admin-btn {
+      padding: 6px 16px; font: 600 13px/1 'Segoe UI', system-ui, sans-serif;
+      color: #fff; background: rgba(80,80,100,0.5); border: 1px solid rgba(120,120,150,0.4);
+      border-radius: 6px; cursor: pointer;
+    }
+    #adminPanel .admin-btn:hover { background: rgba(100,100,130,0.7); }
+    #adminPanel .admin-btn.danger { background: rgba(180,40,30,0.5); border-color: rgba(220,60,40,0.4); }
+    #adminPanel .admin-btn.danger:hover { background: rgba(220,50,30,0.8); }
+    #adminPanel .snap-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px; padding: 16px 24px;
+    }
+    #adminPanel .snap-card {
+      background: rgba(40,40,50,0.8); border: 1px solid rgba(80,80,100,0.3);
+      border-radius: 8px; overflow: hidden;
+    }
+    #adminPanel .snap-card img {
+      width: 100%; height: auto; display: block;
+    }
+    #adminPanel .snap-info {
+      padding: 8px 10px; font: 400 12px/1.4 'Segoe UI', system-ui, sans-serif;
+      color: rgba(200,200,220,0.7);
+    }
+    #adminPanel .snap-info strong { color: rgba(255,200,100,0.9); }
+    #adminPanel .snap-count {
+      font: 600 14px/1 'Segoe UI', system-ui, sans-serif;
+      color: rgba(180,180,200,0.6);
+    }
   </style>
 </head>
 <body>
@@ -246,6 +323,24 @@
 <video id="video" autoplay playsinline muted></video>
 <canvas id="glCanvas"></canvas>
 <div id="overlay"></div>
+<div id="countdownOverlay">
+  <div id="countdownNum">5</div>
+  <div id="countdownLabel">任務開始まで...</div>
+</div>
+<div id="adminPanel">
+  <div class="admin-header">
+    <div class="admin-title">運営パネル ─ プレイヤースナップ</div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span class="snap-count" id="snapCount"></span>
+      <button class="admin-close" id="adminClose">閉じる</button>
+    </div>
+  </div>
+  <div class="admin-actions">
+    <button class="admin-btn" id="adminDownload">全てダウンロード</button>
+    <button class="admin-btn danger" id="adminClear">全て削除</button>
+  </div>
+  <div class="snap-grid" id="snapGrid"></div>
+</div>
 <div id="startScreen">
   <div class="title">忍術バトル</div>
   <div class="subtitle">- 木ノ葉防衛任務 -</div>
@@ -1564,21 +1659,122 @@ function resetGame() {
   waveEl.textContent = 'WAVE 1';
 }
 
+// ── Screenshot / Admin system ──
+var SNAP_KEY = 'ninjaSnaps';
+function loadSnaps() { try { return JSON.parse(localStorage.getItem(SNAP_KEY)) || []; } catch(e) { return []; } }
+function saveSnaps(snaps) { localStorage.setItem(SNAP_KEY, JSON.stringify(snaps)); }
+
+function takeScreenshot() {
+  var snapCanvas = document.createElement('canvas');
+  snapCanvas.width = videoEl.videoWidth || 640;
+  snapCanvas.height = videoEl.videoHeight || 480;
+  var ctx = snapCanvas.getContext('2d');
+  ctx.drawImage(videoEl, 0, 0, snapCanvas.width, snapCanvas.height);
+  var dataUrl = snapCanvas.toDataURL('image/jpeg', 0.7);
+  var snaps = loadSnaps();
+  snaps.push({
+    img: dataUrl,
+    time: new Date().toLocaleString('ja-JP'),
+    score: score,
+    wave: wave,
+  });
+  // Keep max 50 snapshots to avoid localStorage overflow
+  if (snaps.length > 50) snaps = snaps.slice(-50);
+  saveSnaps(snaps);
+}
+
+var countdownOverlayEl = document.getElementById('countdownOverlay');
+var countdownNumEl = document.getElementById('countdownNum');
+var countdownLabelEl = document.getElementById('countdownLabel');
+
+function startCountdown(callback) {
+  countdownOverlayEl.classList.add('show');
+  var count = 5;
+  countdownNumEl.textContent = count;
+  countdownLabelEl.textContent = '任務開始まで...';
+  var interval = setInterval(function() {
+    count--;
+    if (count > 0) {
+      countdownNumEl.textContent = count;
+    } else {
+      clearInterval(interval);
+      countdownNumEl.textContent = '開始!';
+      countdownLabelEl.textContent = '';
+      // Take screenshot at game start
+      takeScreenshot();
+      setTimeout(function() {
+        countdownOverlayEl.classList.remove('show');
+        callback();
+      }, 500);
+    }
+  }, 1000);
+}
+
 document.getElementById('startBtn').addEventListener('click', function() {
   var btn = document.getElementById('startBtn');
   btn.textContent = 'カメラ起動中...';
   btn.style.pointerEvents = 'none';
   startCamera().then(function() {
     startScreenEl.style.display = 'none';
-    gameUIEl.style.display = '';
-    resetGame();
-    gameStarted = true;
-    startWave();
+    startCountdown(function() {
+      gameUIEl.style.display = '';
+      resetGame();
+      gameStarted = true;
+      startWave();
+    });
   }).catch(function() {
     btn.textContent = 'カメラを許可してください';
     btn.style.pointerEvents = '';
     setTimeout(function() { btn.textContent = '任務開始'; }, 2000);
   });
+});
+
+// ── Admin panel (access via ?admin in URL) ──
+var adminPanelEl = document.getElementById('adminPanel');
+var snapGridEl = document.getElementById('snapGrid');
+var snapCountEl = document.getElementById('snapCount');
+
+function renderAdminSnaps() {
+  var snaps = loadSnaps();
+  snapCountEl.textContent = snaps.length + '枚';
+  snapGridEl.innerHTML = '';
+  if (snaps.length === 0) {
+    snapGridEl.innerHTML = '<div style="color:rgba(200,200,220,0.4);padding:40px;text-align:center;grid-column:1/-1;">スナップショットはまだありません</div>';
+    return;
+  }
+  // Show newest first
+  for (var i = snaps.length - 1; i >= 0; i--) {
+    var s = snaps[i];
+    var card = document.createElement('div');
+    card.className = 'snap-card';
+    card.innerHTML =
+      '<img src="' + s.img + '" alt="snap">' +
+      '<div class="snap-info"><strong>' + escapeHtml(s.time) + '</strong><br>SCORE: ' + (s.score||0) + ' / WAVE ' + (s.wave||0) + '</div>';
+    snapGridEl.appendChild(card);
+  }
+}
+
+if (window.location.search.indexOf('admin') !== -1) {
+  adminPanelEl.classList.add('show');
+  renderAdminSnaps();
+}
+document.getElementById('adminClose').addEventListener('click', function() {
+  adminPanelEl.classList.remove('show');
+});
+document.getElementById('adminDownload').addEventListener('click', function() {
+  var snaps = loadSnaps();
+  snaps.forEach(function(s, i) {
+    var a = document.createElement('a');
+    a.href = s.img;
+    a.download = 'ninja_snap_' + (i+1) + '_' + s.time.replace(/[\/\s:]/g, '_') + '.jpg';
+    a.click();
+  });
+});
+document.getElementById('adminClear').addEventListener('click', function() {
+  if (confirm('全てのスナップショットを削除しますか？')) {
+    localStorage.removeItem(SNAP_KEY);
+    renderAdminSnaps();
+  }
 });
 
 // Scroll popup controls
