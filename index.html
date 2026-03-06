@@ -1729,8 +1729,8 @@ var mpHands = new Hands({
 mpHands.setOptions({
   maxNumHands: 2,
   modelComplexity: 1,
-  minDetectionConfidence: 0.65,
-  minTrackingConfidence: 0.5,
+  minDetectionConfidence: 0.78,
+  minTrackingConfidence: 0.6,
 });
 
 mpHands.onResults(function(results) {
@@ -1743,6 +1743,10 @@ mpHands.onResults(function(results) {
 
   landmarks.forEach(function(lms, idx) {
     var label = (handedness[idx] && handedness[idx].label) || 'Left';
+    var confidence = (handedness[idx] && handedness[idx].score) || 0;
+    // Skip low-confidence detections
+    if (confidence < 0.7) return;
+
     // MediaPipe "Left" in image = user's right hand (mirrored) → Rasengan
     // MediaPipe "Right" in image = user's left hand (mirrored) → Chidori
     var s = (label === 'Left') ? rasenganHand : chidoriHand;
@@ -1766,6 +1770,10 @@ mpHands.onResults(function(results) {
     }
   });
 
+  // If a hand is not detected this frame, force it closed (prevent ghost activations)
+  if (!rasenganHand.detected) { rasenganHand.prevOpen = rasenganHand.open; rasenganHand.open = false; }
+  if (!chidoriHand.detected)  { chidoriHand.prevOpen = chidoriHand.open;  chidoriHand.open = false; }
+
   if (landmarks.length === 0) {
     statusEl.textContent = '手のひらをカメラに向けてください';
   }
@@ -1786,19 +1794,23 @@ var lastTs = 0, camShake = 0;
 function processHand(effect, hand, dt) {
   var eState = effect.getState();
   var doAction = false;
+  // Only allow actions when hand is actually detected
+  var handActive = hand.detected && hand.open;
 
   if (hand.detected && hand.prevOpen && !hand.open && eState.mode === 'hand' && hand.holdTime >= 6) {
     doAction = true;
   }
 
   if (eState.mode === 'hand') {
-    if (hand.open) { hand.holdTime += dt; }
+    if (handActive) { hand.holdTime += dt; }
     else if (!doAction) { hand.holdTime = Math.max(0, hand.holdTime - dt * 3); }
   } else if (eState.mode === 'idle') {
     hand.holdTime = 0; hand.posHistory = [];
   }
 
-  effect.update(dt, hand.open, hand.tx, hand.ty, hand.holdTime, doAction, hand.throwVelX, hand.throwVelY);
+  // Pass false for open if hand is not detected — prevents ghost effects
+  var passOpen = hand.detected ? hand.open : false;
+  effect.update(dt, passOpen, hand.tx, hand.ty, hand.holdTime, doAction, hand.throwVelX, hand.throwVelY);
 
   if (doAction) { hand.holdTime = 0; hand.posHistory = []; }
   return eState;
