@@ -1828,6 +1828,7 @@ function renderAdminSnaps() {
 }
 
 if (window.location.search.indexOf('admin') !== -1) {
+  startScreenEl.style.display = 'none';
   adminPanelEl.classList.add('show');
   renderAdminSnaps();
 }
